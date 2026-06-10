@@ -76,6 +76,17 @@ export default function App() {
     setActiveTab('fixtures');
   }
 
+  async function handleUpdateProfile(updatedProfile) {
+    localStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
+    upsertProfile(updatedProfile);
+    setUser(updatedProfile);
+    try {
+      await supabase.from('users').update({ name: updatedProfile.name }).eq('id', updatedProfile.id);
+    } catch (e) {
+      console.warn('Could not update user:', e);
+    }
+  }
+
   function handleAddProfile() {
     setShowWelcome(true);
   }
@@ -109,6 +120,7 @@ export default function App() {
         user={user}
         onSwitchProfile={handleSwitchProfile}
         onAddProfile={handleAddProfile}
+        onUpdateProfile={handleUpdateProfile}
       />
       {activeTab === 'fixtures' && <Fixtures user={user} />}
       {activeTab === 'leaderboard' && <Leaderboard currentUser={user} />}

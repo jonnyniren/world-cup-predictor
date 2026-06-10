@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase.js';
+import { getRanking, getRankTier } from '../rankings.js';
 
 // ── Comprehensive flag mapping ────────────────────────────────────────────────
 const FLAG_MAP = {
@@ -394,6 +395,8 @@ export default function Fixtures({ user }) {
               const awayName = match.awayTeam?.name || 'TBD';
               const homeFlag = getFlag(match.homeTeam?.name);
               const awayFlag = getFlag(match.awayTeam?.name);
+              const homeRank = getRanking(match.homeTeam?.name);
+              const awayRank = getRanking(match.awayTeam?.name);
               const pred = predictions[match.id] || { home: '', away: '' };
               const hasPred = pred.home !== '' && pred.away !== '';
               const actualHome = status === 'final' && match.score?.fullTime?.home != null ? String(match.score.fullTime.home) : null;
@@ -403,7 +406,10 @@ export default function Fixtures({ user }) {
               return (
                 <div key={match.id} className={`match-row${isLocked ? ' locked' : ''}${hasPred && !isLocked ? ' has-prediction' : ''}`}>
                   <div className="team-side home">
-                    <span className="team-name">{homeName}</span>
+                    <div className="team-info home">
+                      <span className="team-name">{homeName}</span>
+                      {homeRank && <span className={`rank-badge ${getRankTier(homeRank)}`}>#{homeRank}</span>}
+                    </div>
                     <span className="team-flag">{homeFlag}</span>
                   </div>
 
@@ -458,7 +464,10 @@ export default function Fixtures({ user }) {
 
                   <div className="team-side away">
                     <span className="team-flag">{awayFlag}</span>
-                    <span className="team-name">{awayName}</span>
+                    <div className="team-info away">
+                      <span className="team-name">{awayName}</span>
+                      {awayRank && <span className={`rank-badge ${getRankTier(awayRank)}`}>#{awayRank}</span>}
+                    </div>
                   </div>
                 </div>
               );

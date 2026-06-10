@@ -412,6 +412,20 @@ body::before {
   flex-shrink: 0;
 }
 
+.team-flag-img {
+  width: 28px;
+  height: auto;
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.team-flag-fallback {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 .match-center {
   display: flex;
   flex-direction: column;

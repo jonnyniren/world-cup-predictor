@@ -2,143 +2,71 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase.js';
 import { getRanking, getRankTier } from '../rankings.js';
 
-// ── Comprehensive flag mapping ────────────────────────────────────────────────
-const FLAG_MAP = {
-  // Americas
-  'USA': '🇺🇸', 'United States': '🇺🇸',
-  'Canada': '🇨🇦',
-  'Mexico': '🇲🇽',
-  'Brazil': '🇧🇷',
-  'Argentina': '🇦🇷',
-  'Uruguay': '🇺🇾',
-  'Colombia': '🇨🇴',
-  'Ecuador': '🇪🇨',
-  'Chile': '🇨🇱',
-  'Peru': '🇵🇪',
-  'Paraguay': '🇵🇾',
-  'Venezuela': '🇻🇪',
-  'Bolivia': '🇧🇴',
-  'Panama': '🇵🇦',
-  'Costa Rica': '🇨🇷',
-  'Honduras': '🇭🇳',
-  'Jamaica': '🇯🇲',
-  'Haiti': '🇭🇹',
-  'Trinidad and Tobago': '🇹🇹', 'Trinidad & Tobago': '🇹🇹',
-  'El Salvador': '🇸🇻',
-  'Guatemala': '🇬🇹',
-  'Cuba': '🇨🇺',
-  'Guyana': '🇬🇾',
-  'Suriname': '🇸🇷',
-  // Europe
-  'Germany': '🇩🇪',
-  'France': '🇫🇷',
-  'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-  'Spain': '🇪🇸',
-  'Portugal': '🇵🇹',
-  'Netherlands': '🇳🇱',
-  'Belgium': '🇧🇪',
-  'Italy': '🇮🇹',
-  'Croatia': '🇭🇷',
-  'Switzerland': '🇨🇭',
-  'Poland': '🇵🇱',
-  'Serbia': '🇷🇸',
-  'Austria': '🇦🇹',
-  'Ukraine': '🇺🇦',
-  'Denmark': '🇩🇰',
-  'Norway': '🇳🇴',
-  'Sweden': '🇸🇪',
-  'Turkey': '🇹🇷', 'Türkiye': '🇹🇷',
-  'Greece': '🇬🇷',
-  'Czech Republic': '🇨🇿', 'Czechia': '🇨🇿',
-  'Romania': '🇷🇴',
-  'Slovakia': '🇸🇰',
-  'Hungary': '🇭🇺',
-  'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-  'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
-  'Albania': '🇦🇱',
-  'Slovenia': '🇸🇮',
-  'Georgia': '🇬🇪',
-  'Finland': '🇫🇮',
-  'Ireland': '🇮🇪', 'Republic of Ireland': '🇮🇪',
-  'Israel': '🇮🇱',
-  'Montenegro': '🇲🇪',
-  'North Macedonia': '🇲🇰',
-  'Bulgaria': '🇧🇬',
-  'Luxembourg': '🇱🇺',
-  'Kosovo': '🇽🇰',
-  'Bosnia and Herzegovina': '🇧🇦', 'Bosnia & Herzegovina': '🇧🇦', 'Bosnia-Herzegovina': '🇧🇦', 'Bosnia': '🇧🇦',
-  'Northern Ireland': '🇬🇧',
-  'Russia': '🇷🇺',
-  // Africa
-  'Morocco': '🇲🇦',
-  'Senegal': '🇸🇳',
-  'Nigeria': '🇳🇬',
-  'Cameroon': '🇨🇲',
-  'Ghana': '🇬🇭',
-  'Egypt': '🇪🇬',
-  'Ivory Coast': '🇨🇮', "Côte d'Ivoire": '🇨🇮', 'Cote d\'Ivoire': '🇨🇮',
-  'DR Congo': '🇨🇩', 'Congo DR': '🇨🇩', 'Democratic Republic of Congo': '🇨🇩',
-  'Algeria': '🇩🇿',
-  'Tunisia': '🇹🇳',
-  'South Africa': '🇿🇦',
-  'Mali': '🇲🇱',
-  'Guinea': '🇬🇳',
-  'Cape Verde': '🇨🇻',
-  'Benin': '🇧🇯',
-  'Ethiopia': '🇪🇹',
-  'Tanzania': '🇹🇿',
-  'Zimbabwe': '🇿🇼',
-  'Zambia': '🇿🇲',
-  'Angola': '🇦🇴',
-  'Uganda': '🇺🇬',
-  'Mozambique': '🇲🇿',
-  'Burkina Faso': '🇧🇫',
-  'Libya': '🇱🇾',
-  'Sudan': '🇸🇩',
-  'Kenya': '🇰🇪',
-  'Gabon': '🇬🇦',
-  // Asia
-  'Japan': '🇯🇵',
-  'South Korea': '🇰🇷', 'Korea Republic': '🇰🇷',
-  'Australia': '🇦🇺',
-  'Saudi Arabia': '🇸🇦',
-  'Iran': '🇮🇷',
-  'Qatar': '🇶🇦',
-  'Iraq': '🇮🇶',
-  'Uzbekistan': '🇺🇿',
-  'Indonesia': '🇮🇩',
-  'Thailand': '🇹🇭',
-  'Vietnam': '🇻🇳',
-  'China': '🇨🇳', 'China PR': '🇨🇳',
-  'India': '🇮🇳',
-  'Jordan': '🇯🇴',
-  'Oman': '🇴🇲',
-  'UAE': '🇦🇪', 'United Arab Emirates': '🇦🇪',
-  'Kyrgyzstan': '🇰🇬',
-  'Tajikistan': '🇹🇯',
-  'Philippines': '🇵🇭',
-  'Bahrain': '🇧🇭',
-  'Kuwait': '🇰🇼',
-  'Syria': '🇸🇾',
-  'Palestine': '🇵🇸',
-  // Oceania
-  'New Zealand': '🇳🇿',
-  'Fiji': '🇫🇯',
-  'Papua New Guinea': '🇵🇬',
-  'Solomon Islands': '🇸🇧',
-  'Vanuatu': '🇻🇺',
-  'Tahiti': '🇵🇫',
+// ── Flag images via flagcdn.com (works on all platforms including Windows) ────
+const FLAG_CODES = {
+  'USA': 'us', 'United States': 'us',
+  'Canada': 'ca', 'Mexico': 'mx', 'Brazil': 'br', 'Argentina': 'ar',
+  'Germany': 'de', 'France': 'fr', 'England': 'gb-eng', 'Spain': 'es',
+  'Portugal': 'pt', 'Netherlands': 'nl', 'Belgium': 'be', 'Italy': 'it',
+  'Croatia': 'hr', 'Morocco': 'ma', 'Japan': 'jp',
+  'South Korea': 'kr', 'Korea Republic': 'kr',
+  'Australia': 'au', 'Saudi Arabia': 'sa', 'Iran': 'ir',
+  'Senegal': 'sn', 'Nigeria': 'ng', 'Cameroon': 'cm', 'Ghana': 'gh',
+  'Ecuador': 'ec', 'Uruguay': 'uy', 'Colombia': 'co', 'Chile': 'cl',
+  'Switzerland': 'ch', 'Poland': 'pl', 'Serbia': 'rs', 'Austria': 'at',
+  'Ukraine': 'ua', 'Denmark': 'dk', 'Norway': 'no', 'Sweden': 'se',
+  'Turkey': 'tr', 'Turkiye': 'tr', 'Greece': 'gr',
+  'Czech Republic': 'cz', 'Czechia': 'cz',
+  'Romania': 'ro', 'Slovakia': 'sk', 'Hungary': 'hu',
+  'Scotland': 'gb-sct', 'Wales': 'gb-wls', 'Northern Ireland': 'gb-nir',
+  'Qatar': 'qa', 'Egypt': 'eg',
+  'Ivory Coast': 'ci', 'Cote d\'Ivoire': 'ci', 'Cote dIvoire': 'ci',
+  'DR Congo': 'cd', 'Congo DR': 'cd', 'Democratic Republic of Congo': 'cd',
+  'Algeria': 'dz', 'Tunisia': 'tn', 'Panama': 'pa', 'Costa Rica': 'cr',
+  'Honduras': 'hn', 'Jamaica': 'jm', 'New Zealand': 'nz', 'Peru': 'pe',
+  'Paraguay': 'py', 'Venezuela': 've', 'Bolivia': 'bo', 'Iraq': 'iq',
+  'Uzbekistan': 'uz', 'Indonesia': 'id', 'Thailand': 'th', 'Vietnam': 'vn',
+  'South Africa': 'za',
+  'Bosnia and Herzegovina': 'ba', 'Bosnia & Herzegovina': 'ba', 'Bosnia-Herzegovina': 'ba', 'Bosnia': 'ba',
+  'Haiti': 'ht', 'Albania': 'al', 'Slovenia': 'si', 'Georgia': 'ge',
+  'Finland': 'fi', 'Ireland': 'ie', 'Republic of Ireland': 'ie',
+  'Israel': 'il', 'Montenegro': 'me', 'North Macedonia': 'mk',
+  'Bulgaria': 'bg', 'Kosovo': 'xk', 'Luxembourg': 'lu',
+  'Trinidad and Tobago': 'tt', 'Trinidad & Tobago': 'tt',
+  'El Salvador': 'sv', 'Cuba': 'cu', 'Guyana': 'gy', 'Suriname': 'sr',
+  'China': 'cn', 'China PR': 'cn', 'India': 'in', 'Jordan': 'jo',
+  'Oman': 'om', 'UAE': 'ae', 'United Arab Emirates': 'ae',
+  'Kyrgyzstan': 'kg', 'Tajikistan': 'tj', 'Philippines': 'ph',
+  'Tanzania': 'tz', 'Zimbabwe': 'zw', 'Zambia': 'zm', 'Angola': 'ao',
+  'Uganda': 'ug', 'Mali': 'ml', 'Guinea': 'gn', 'Cape Verde': 'cv',
+  'Benin': 'bj', 'Ethiopia': 'et', 'Mozambique': 'mz',
+  'Burkina Faso': 'bf', 'Libya': 'ly', 'Kenya': 'ke',
+  'Fiji': 'fj', 'Papua New Guinea': 'pg', 'Solomon Islands': 'sb',
 };
 
-function getFlag(name) {
-  if (!name) return '⚽';
-  if (FLAG_MAP[name]) return FLAG_MAP[name];
-  // Partial match fallback — handles e.g. "Bosnia and Herzegovina (AET)"
-  const lower = name.toLowerCase();
-  for (const [key, flag] of Object.entries(FLAG_MAP)) {
-    if (lower.includes(key.toLowerCase()) || key.toLowerCase().includes(lower)) return flag;
+function getFlagCode(name) {
+  if (!name) return null;
+  if (FLAG_CODES[name]) return FLAG_CODES[name];
+  const lower = name.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+  for (const [key, code] of Object.entries(FLAG_CODES)) {
+    const kl = key.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+    if (lower.includes(kl) || kl.includes(lower)) return code;
   }
-  return '⚽';
+  return null;
+}
+
+function TeamFlag({ name }) {
+  const code = getFlagCode(name);
+  if (!code) return <span className="team-flag-fallback">&#9917;</span>;
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${code}.png`}
+      srcSet={`https://flagcdn.com/w80/${code}.png 2x`}
+      alt={name || ''}
+      className="team-flag-img"
+      loading="lazy"
+    />
+  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -184,17 +112,17 @@ function getPredictionPoints(pred, match) {
   if (aH == null || aA == null) return null;
   const pH = Number(pred.home), pA = Number(pred.away);
   const actualH = Number(aH), actualA = Number(aA);
-  if (pH === actualH && pA === actualA) return { pts: 3, label: '🎉 Exact score! +3pts' };
-  if (getResult(pH, pA) === getResult(actualH, actualA)) return { pts: 1, label: '✓ Correct result +1pt' };
-  return { pts: 0, label: '✗ No points' };
+  if (pH === actualH && pA === actualA) return { pts: 3, label: '&#127881; Exact score! +3pts' };
+  if (getResult(pH, pA) === getResult(actualH, actualA)) return { pts: 1, label: '&#10003; Correct result +1pt' };
+  return { pts: 0, label: '&#10007; No points' };
 }
 
 function StatusBadge({ status }) {
   const map = {
     upcoming: ['badge-upcoming', 'UPCOMING'],
-    locked:   ['badge-locked', '🔒 LOCKED'],
-    live:     ['badge-live', 'LIVE ⚽'],
-    final:    ['badge-final', 'FINAL ✓'],
+    locked:   ['badge-locked', 'LOCKED'],
+    live:     ['badge-live', 'LIVE'],
+    final:    ['badge-final', 'FINAL'],
   };
   const [cls, label] = map[status] || map.upcoming;
   return <span className={`badge ${cls}`}>{label}</span>;
@@ -231,7 +159,6 @@ export default function Fixtures({ user }) {
 
   async function fetchFixtures(forceRefresh = false) {
     setLoading(true); setError(null); setRateLimitMsg(null);
-
     if (!forceRefresh) {
       try {
         const cached = localStorage.getItem(CACHE_KEY);
@@ -241,7 +168,6 @@ export default function Fixtures({ user }) {
         }
       } catch { /* ignore */ }
     }
-
     try {
       const res = await fetch('/api/fixtures');
       const remaining = res.headers.get('X-Requests-Available-Minute');
@@ -276,16 +202,12 @@ export default function Fixtures({ user }) {
     if (!pred || pred.home === '' || pred.away === '') return;
     try {
       const { error } = await supabase.from('predictions').upsert({
-        id: `${user.id}_${matchId}`,
-        user_id: user.id,
-        match_id: Number(matchId),
-        home_score: Number(pred.home),
-        away_score: Number(pred.away),
-        updated_at: new Date().toISOString(),
+        id: `${user.id}_${matchId}`, user_id: user.id, match_id: Number(matchId),
+        home_score: Number(pred.home), away_score: Number(pred.away), updated_at: new Date().toISOString(),
       });
       if (error) throw error;
       setUnsaved(prev => { const s = new Set(prev); s.delete(matchId); return s; });
-      showToast('Saved ✓');
+      showToast('Saved');
     } catch (e) { console.error(e); showToast('Save failed — check connection'); }
   }
 
@@ -309,7 +231,7 @@ export default function Fixtures({ user }) {
       }
       if (rows.length > 0) { const { error } = await supabase.from('predictions').upsert(rows); if (error) throw error; }
       setUnsaved(new Set());
-      showToast(`${rows.length} prediction${rows.length !== 1 ? 's' : ''} saved! ✓`);
+      showToast(`${rows.length} prediction${rows.length !== 1 ? 's' : ''} saved!`);
     } catch (e) { console.error(e); showToast('Save failed — check connection'); }
     finally { setSaving(false); }
   }
@@ -320,7 +242,7 @@ export default function Fixtures({ user }) {
       if (filter === 'group') return m.stage && m.stage.includes('GROUP');
       if (filter === 'knockout') return m.stage && !m.stage.includes('GROUP');
       if (filter === 'upcoming') return getMatchStatus(m) === 'upcoming';
-      return true; // 'all'
+      return true;
     });
     for (const m of filtered) {
       const key = getDateKey(m.utcDate);
@@ -340,7 +262,7 @@ export default function Fixtures({ user }) {
     return (
       <div className="loading-screen">
         <div className="spinner" />
-        <span className="loading-text">Loading World Cup fixtures... ⚽</span>
+        <span className="loading-text">Loading World Cup fixtures...</span>
       </div>
     );
   }
@@ -348,12 +270,7 @@ export default function Fixtures({ user }) {
   return (
     <div>
       <div className="filter-bar">
-        {[
-          ['all', '🌍 All'],
-          ['group', '📋 Groups'],
-          ['knockout', '⚡ Knockout'],
-          ['upcoming', '⏰ Upcoming'],
-        ].map(([f, label]) => (
+        {[['all','All'],['group','Groups'],['knockout','Knockout'],['upcoming','Upcoming']].map(([f, label]) => (
           <button key={f} className={`filter-chip${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
             {label}
           </button>
@@ -362,39 +279,37 @@ export default function Fixtures({ user }) {
 
       {rateLimitMsg && (
         <div className="card card-sm" style={{ margin: '12px', background: '#fff8e1', borderLeft: '4px solid #FFD700' }}>
-          <p style={{ fontSize: '0.85rem', color: '#666', fontWeight: 600 }}>⏳ {rateLimitMsg}</p>
+          <p style={{ fontSize: '0.85rem', color: '#666', fontWeight: 600 }}>Loading fixtures... rate limit reached. Retrying shortly.</p>
         </div>
       )}
       {error && (
         <div className="card card-sm" style={{ margin: '12px', background: '#fff3f3', borderLeft: '4px solid #ffcdd2' }}>
-          <p style={{ fontSize: '0.85rem', color: '#c62828', fontWeight: 600 }}>⚠️ {error}</p>
+          <p style={{ fontSize: '0.85rem', color: '#c62828', fontWeight: 600 }}>Warning: {error}</p>
         </div>
       )}
       {matches.length === 0 && !loading && !error && (
         <div className="empty-state" style={{ paddingTop: 60 }}>
-          <div className="empty-icon">📅</div>
+          <div className="empty-icon">&#128197;</div>
           <div className="empty-text">No fixtures available yet.<br />Check back soon!</div>
-          <button className="btn btn-gold" style={{ marginTop: 20 }} onClick={() => fetchFixtures(true)}>🔄 Refresh</button>
+          <button className="btn btn-gold" style={{ marginTop: 20 }} onClick={() => fetchFixtures(true)}>Refresh</button>
         </div>
       )}
       {dateKeys.length === 0 && matches.length > 0 && (
         <div className="empty-state" style={{ paddingTop: 40 }}>
-          <div className="empty-icon">✅</div>
-          <div className="empty-text">You're all caught up!<br />No upcoming matches to predict right now.</div>
+          <div className="empty-icon">&#10003;</div>
+          <div className="empty-text">You're all caught up!<br />No upcoming matches right now.</div>
         </div>
       )}
 
       {dateKeys.map(key => (
         <div className="date-group" key={key}>
-          <div className="date-header">📅 {grouped[key].label}</div>
+          <div className="date-header">&#128197; {grouped[key].label}</div>
           <div className="card">
             {grouped[key].matches.map(match => {
               const status = getMatchStatus(match);
               const isLocked = status === 'locked' || status === 'live' || status === 'final';
               const homeName = match.homeTeam?.name || 'TBD';
               const awayName = match.awayTeam?.name || 'TBD';
-              const homeFlag = getFlag(match.homeTeam?.name);
-              const awayFlag = getFlag(match.awayTeam?.name);
               const homeRank = getRanking(match.homeTeam?.name);
               const awayRank = getRanking(match.awayTeam?.name);
               const pred = predictions[match.id] || { home: '', away: '' };
@@ -405,14 +320,16 @@ export default function Fixtures({ user }) {
 
               return (
                 <div key={match.id} className={`match-row${isLocked ? ' locked' : ''}${hasPred && !isLocked ? ' has-prediction' : ''}`}>
+                  {/* Home team */}
                   <div className="team-side home">
                     <div className="team-info home">
                       <span className="team-name">{homeName}</span>
                       {homeRank && <span className={`rank-badge ${getRankTier(homeRank)}`}>#{homeRank}</span>}
                     </div>
-                    <span className="team-flag">{homeFlag}</span>
+                    <TeamFlag name={match.homeTeam?.name} />
                   </div>
 
+                  {/* Centre */}
                   <div className="match-center">
                     <div className="score-input-wrapper">
                       {status === 'final' ? (
@@ -447,12 +364,10 @@ export default function Fixtures({ user }) {
                     </div>
                     <span className="match-time">{formatBST(match.utcDate)}</span>
                     <StatusBadge status={status} />
-
-                    {/* Inline prediction result for finished matches */}
                     {status === 'final' && hasPred && pointsInfo && (
                       <div className={`pred-result pts-${pointsInfo.pts}`}>
-                        <span className="pred-your-pick">You: {pred.home}–{pred.away}</span>
-                        <span className="pred-pts-label">{pointsInfo.label}</span>
+                        <span className="pred-your-pick">You: {pred.home}&ndash;{pred.away}</span>
+                        <span className="pred-pts-label" dangerouslySetInnerHTML={{ __html: pointsInfo.label }} />
                       </div>
                     )}
                     {status === 'final' && !hasPred && (
@@ -462,8 +377,9 @@ export default function Fixtures({ user }) {
                     )}
                   </div>
 
+                  {/* Away team */}
                   <div className="team-side away">
-                    <span className="team-flag">{awayFlag}</span>
+                    <TeamFlag name={match.awayTeam?.name} />
                     <div className="team-info away">
                       <span className="team-name">{awayName}</span>
                       {awayRank && <span className={`rank-badge ${getRankTier(awayRank)}`}>#{awayRank}</span>}
@@ -480,15 +396,14 @@ export default function Fixtures({ user }) {
         <div className="save-bar">
           <span className="save-bar-text"><span className="unsaved-dot" />{unsaved.size} unsaved prediction{unsaved.size !== 1 ? 's' : ''}</span>
           <button className="btn btn-gold" onClick={saveAll} disabled={saving} style={{ minHeight: 40, padding: '8px 20px', fontSize: '0.9rem' }}>
-            {saving ? 'Saving...' : 'Save All ✓'}
+            {saving ? 'Saving...' : 'Save All'}
           </button>
         </div>
       )}
 
       <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
-        <button className="refresh-btn" onClick={() => fetchFixtures(true)}>🔄 Refresh Fixtures</button>
+        <button className="refresh-btn" onClick={() => fetchFixtures(true)}>Refresh Fixtures</button>
       </div>
-
       <div className={`toast${toastVisible ? ' show' : ''}`}>{toastMsg}</div>
     </div>
   );

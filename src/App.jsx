@@ -51,7 +51,7 @@ export default function App() {
     setLoading(false);
   }, []);
 
-  async function handleWelcomeComplete(name, avatar, existingId = null) {
+  async function handleWelcomeComplete(name, avatar, existingId = null, pin = null) {
     const id = existingId || generateId();
     const newUser = { id, name, avatar };
 
@@ -62,7 +62,9 @@ export default function App() {
     setShowWelcome(false);
 
     try {
-      await supabase.from('users').upsert({ id, name, avatar });
+      const record = { id, name, avatar };
+      if (pin) record.pin = pin;
+      await supabase.from('users').upsert(record);
     } catch (e) {
       console.warn('Could not save user:', e);
     }

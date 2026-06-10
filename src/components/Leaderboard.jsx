@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase.js';
 
-const API_KEY = import.meta.env.VITE_FOOTBALL_API_KEY || 'f882d1fa200843c78dc1d9da8e200b34';
 const CACHE_KEY = 'wc2026_fixtures_cache';
 
 function getResult(home, away) {
@@ -19,10 +18,7 @@ async function fetchFinishedMatches() {
     }
   } catch { /* ignore */ }
 
-  const res = await fetch(
-    'https://api.football-data.org/v4/competitions/WC/matches?season=2026',
-    { headers: { 'X-Auth-Token': API_KEY } }
-  );
+  const res = await fetch('/api/fixtures');
   if (!res.ok) throw new Error(`API ${res.status}`);
   const json = await res.json();
   const data = json.matches || [];

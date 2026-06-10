@@ -76,7 +76,6 @@ function getFlag(name) {
 
 const CACHE_KEY = 'wc2026_fixtures_cache';
 const CACHE_TTL = 5 * 60 * 1000;
-const API_KEY = import.meta.env.VITE_FOOTBALL_API_KEY || 'f882d1fa200843c78dc1d9da8e200b34';
 
 function formatBST(utcString) {
   if (!utcString) return '';
@@ -180,10 +179,7 @@ export default function Fixtures({ user }) {
     }
 
     try {
-      const res = await fetch(
-        'https://api.football-data.org/v4/competitions/WC/matches?season=2026',
-        { headers: { 'X-Auth-Token': API_KEY } }
-      );
+      const res = await fetch('/api/fixtures');
 
       const remaining = res.headers.get('X-Requests-Available-Minute');
       if (res.status === 429 || remaining === '0') {

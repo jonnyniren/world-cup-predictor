@@ -38,17 +38,25 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(USER_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setUser(parsed);
-        // Migrate: make sure this profile exists in the profiles list
-        // (handles profiles created before the switcher feature existed)
-        upsertProfile(parsed);
-      }
-    } catch { /* ignore */ }
-    setLoading(false);
+    async function init() {
+      try {
+        const stored = localStorage.getItem(USER_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Verify profile still exists in Supabase; clear if deleted
+          const { data } = await supabase.from('users').select('id').eq('id', parsed.id).maybeSingle();
+          if (!data) {
+            localStorage.removeItem(USER_KEY);
+            localStorage.removeItem(PROFILES_KEY);
+          } else {
+            setUser(parsed);
+            upsertProfile(parsed);
+          }
+        }
+      } catch { /* ignore — show registration on any error */ }
+      setLoading(false);
+    }
+    init();
   }, []);
 
   async function handleWelcomeComplete(name, avatar, existingId = null, pin = null) {

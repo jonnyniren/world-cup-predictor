@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from './firebase.js';
-import { doc, setDoc } from 'firebase/firestore';
+import { supabase } from './supabase.js';
 import Welcome from './components/Welcome.jsx';
 import Fixtures from './components/Fixtures.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
@@ -12,7 +11,6 @@ function generateId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0;
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
@@ -38,19 +36,13 @@ export default function App() {
     const id = generateId();
     const newUser = { id, name, avatar };
 
-    // Save to localStorage
     localStorage.setItem(USER_KEY, JSON.stringify(newUser));
     setUser(newUser);
 
-    // Save to Firestore (best-effort)
     try {
-      await setDoc(doc(db, 'users', id), {
-        name,
-        avatar,
-        createdAt: new Date(),
-      });
+      await supabase.from('users').upsert({ id, name, avatar });
     } catch (e) {
-      console.warn('Could not save user to Firestore:', e);
+      console.warn('Could not save user:', e);
     }
   }
 

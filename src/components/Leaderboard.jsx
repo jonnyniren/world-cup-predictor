@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { db } from '../firebase.js';
-import { collection, getDocs } from 'firebase/firestore';
+import { supabase } from '../supabase.js';
 
 const API_KEY = import.meta.env.VITE_FOOTBALL_API_KEY || 'f882d1fa200843c78dc1d9da8e200b34';
 const CACHE_KEY = 'wc2026_fixtures_cache';
@@ -12,7 +11,6 @@ function getResult(home, away) {
 }
 
 async function fetchFinishedMatches() {
-  // Try cache first
   try {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
@@ -21,7 +19,6 @@ async function fetchFinishedMatches() {
     }
   } catch { /* ignore */ }
 
-  // Fetch fresh
   const res = await fetch(
     'https://api.football-data.org/v4/competitions/WC/matches?season=2026',
     { headers: { 'X-Auth-Token': API_KEY } }
@@ -29,61 +26,37 @@ async function fetchFinishedMatches() {
   if (!res.ok) throw new Error(`API ${res.status}`);
   const json = await res.json();
   const data = json.matches || [];
-  // Update cache
   localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
   return data.filter(m => m.status === 'FINISHED');
 }
 
 function computeLeaderboard(users, predictions, finishedMatches) {
-  // Build lookup: matchId -> result
   const matchResults = {};
   for (const m of finishedMatches) {
-    matchResults[m.id] = {
-      home: m.score?.fullTime?.home,
-      away: m.score?.fullTime?.away,
-    };
+    matchResults[m.id] = { home: m.score?.fullTime?.home, away: m.score?.fullTime?.away };
   }
 
-  // Group predictions by userId
   const predsByUser = {};
   for (const p of predictions) {
-    if (!predsByUser[p.userId]) predsByUser[p.userId] = [];
-    predsByUser[p.userId].push(p);
+    if (!predsByUser[p.user_id]) predsByUser[p.user_id] = [];
+    predsByUser[p.user_id].push(p);
   }
 
   return users.map(u => {
     let pts = 0, correctScores = 0, correctResults = 0;
-    const userPreds = predsByUser[u.id] || [];
-
-    for (const pred of userPreds) {
-      const result = matchResults[pred.matchId];
+    for (const pred of (predsByUser[u.id] || [])) {
+      const result = matchResults[pred.match_id];
       if (!result || result.home == null || result.away == null) continue;
-
-      const predHome = Number(pred.homeScore);
-      const predAway = Number(pred.awayScore);
-      const actualHome = Number(result.home);
-      const actualAway = Number(result.away);
-
-      if (predHome === actualHome && predAway === actualAway) {
-        pts += 3;
-        correctScores += 1;
-      } else if (getResult(predHome, predAway) === getResult(actualHome, actualAway)) {
-        pts += 1;
-        correctResults += 1;
-      }
+      const pH = Number(pred.home_score), pA = Number(pred.away_score);
+      const aH = Number(result.home), aA = Number(result.away);
+      if (pH === aH && pA === aA) { pts += 3; correctScores++; }
+      else if (getResult(pH, pA) === getResult(aH, aA)) { pts += 1; correctResults++; }
     }
-
-    return {
-      ...u,
-      pts,
-      correctScores,
-      correctResults,
-      predictions: userPreds.length,
-    };
+    return { ...u, pts, correctScores, correctResults };
   }).sort((a, b) => {
     if (b.pts !== a.pts) return b.pts - a.pts;
     if (b.correctScores !== a.correctScores) return b.correctScores - a.correctScores;
-    return a.name.localeCompare(b.name);
+    return (a.name || '').localeCompare(b.name || '');
   });
 }
 
@@ -97,18 +70,14 @@ export default function Leaderboard({ currentUser }) {
     setLoading(true);
     setError(null);
     try {
-      // Parallel fetch
-      const [usersSnap, predsSnap, finishedMatches] = await Promise.all([
-        getDocs(collection(db, 'users')),
-        getDocs(collection(db, 'predictions')),
+      const [{ data: users, error: uErr }, { data: predictions, error: pErr }, finishedMatches] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('predictions').select('*'),
         fetchFinishedMatches().catch(() => []),
       ]);
-
-      const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const predictions = predsSnap.docs.map(d => d.data());
-
-      const board = computeLeaderboard(users, predictions, finishedMatches);
-      setRows(board);
+      if (uErr) throw uErr;
+      if (pErr) throw pErr;
+      setRows(computeLeaderboard(users || [], predictions || [], finishedMatches));
       setLastUpdated(new Date());
     } catch (e) {
       console.error(e);
@@ -120,7 +89,7 @@ export default function Leaderboard({ currentUser }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const rankIcon = (rank) => {
+  const rankIcon = rank => {
     if (rank === 1) return <span className="rank-gold">🥇</span>;
     if (rank === 2) return <span className="rank-silver">🥈</span>;
     if (rank === 3) return <span className="rank-bronze">🥉</span>;
@@ -157,9 +126,7 @@ export default function Leaderboard({ currentUser }) {
           3pts = exact score · 1pt = correct result
         </div>
         <div style={{ marginTop: 10 }}>
-          <button className="refresh-btn" onClick={load}>
-            🔄 Refresh
-          </button>
+          <button className="refresh-btn" onClick={load}>🔄 Refresh</button>
         </div>
         {lastUpdated && (
           <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem', marginTop: 6 }}>
@@ -191,45 +158,23 @@ export default function Leaderboard({ currentUser }) {
                 const rank = idx + 1;
                 const isMe = currentUser && row.id === currentUser.id;
                 const hasCelebrate = row.correctScores > 0;
-
                 return (
-                  <tr
-                    key={row.id}
-                    className={[
-                      isMe ? 'current-user' : '',
-                      hasCelebrate ? 'has-score' : '',
-                    ].filter(Boolean).join(' ')}
-                  >
+                  <tr key={row.id} className={[isMe ? 'current-user' : '', hasCelebrate ? 'has-score' : ''].filter(Boolean).join(' ')}>
                     <td className="rank-cell center">{rankIcon(rank)}</td>
                     <td className="avatar-cell center">
-                      <span className={hasCelebrate ? 'celebrate-emoji' : ''}>
-                        {row.avatar || '⚽'}
-                      </span>
+                      <span className={hasCelebrate ? 'celebrate-emoji' : ''}>{row.avatar || '⚽'}</span>
                     </td>
                     <td>
-                      <span style={{ fontWeight: isMe ? 800 : 600 }}>
-                        {row.name || 'Unknown'}
-                      </span>
+                      <span style={{ fontWeight: isMe ? 800 : 600 }}>{row.name || 'Unknown'}</span>
                       {isMe && (
-                        <span style={{
-                          fontSize: '0.7rem',
-                          background: '#FFD700',
-                          color: '#333',
-                          borderRadius: 8,
-                          padding: '1px 6px',
-                          marginLeft: 6,
-                          fontWeight: 700,
-                        }}>YOU</span>
+                        <span style={{ fontSize: '0.7rem', background: '#FFD700', color: '#333', borderRadius: 8, padding: '1px 6px', marginLeft: 6, fontWeight: 700 }}>YOU</span>
                       )}
                     </td>
                     <td className="pts-cell center">
-                      {hasCelebrate ? (
-                        <span className={`pts-badge${row.pts >= 3 ? ' pts-3' : ''}`}>
-                          {row.pts}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#999' }}>{row.pts}</span>
-                      )}
+                      {hasCelebrate
+                        ? <span className={`pts-badge${row.pts >= 3 ? ' pts-3' : ''}`}>{row.pts}</span>
+                        : <span style={{ color: '#999' }}>{row.pts}</span>
+                      }
                     </td>
                     <td className="center" style={{ color: row.correctScores > 0 ? '#d4a000' : '#999' }}>
                       {row.correctScores > 0 ? `🎉 ${row.correctScores}` : row.correctScores}

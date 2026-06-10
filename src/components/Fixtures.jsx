@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { db } from '../firebase.js';
-import { doc, writeBatch, collection, getDocs, query, where } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../supabase.js';
 
 // ── Flag mapping ──────────────────────────────────────────────────────────────
 const FLAG_MAP = {
@@ -75,58 +74,45 @@ function getFlag(name) {
   return FLAG_MAP[name] || '⚽';
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 const CACHE_KEY = 'wc2026_fixtures_cache';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
 const API_KEY = import.meta.env.VITE_FOOTBALL_API_KEY || 'f882d1fa200843c78dc1d9da8e200b34';
 
 function formatBST(utcString) {
   if (!utcString) return '';
   try {
-    const d = new Date(utcString);
-    return d.toLocaleString('en-GB', {
+    return new Date(utcString).toLocaleString('en-GB', {
       timeZone: 'Europe/London',
       hour: '2-digit',
       minute: '2-digit',
     });
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
 function formatDateLabel(utcString) {
   if (!utcString) return '';
   try {
-    const d = new Date(utcString);
-    return d.toLocaleDateString('en-GB', {
+    return new Date(utcString).toLocaleDateString('en-GB', {
       timeZone: 'Europe/London',
       weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     });
-  } catch {
-    return utcString.slice(0, 10);
-  }
+  } catch { return utcString.slice(0, 10); }
 }
 
 function getDateKey(utcString) {
   if (!utcString) return 'unknown';
   try {
-    const d = new Date(utcString);
-    // Get date in London timezone
-    return d.toLocaleDateString('en-GB', { timeZone: 'Europe/London' });
-  } catch {
-    return utcString.slice(0, 10);
-  }
+    return new Date(utcString).toLocaleDateString('en-GB', { timeZone: 'Europe/London' });
+  } catch { return utcString.slice(0, 10); }
 }
 
 function getMatchStatus(match) {
-  const status = match.status;
-  if (status === 'FINISHED') return 'final';
-  if (status === 'IN_PLAY' || status === 'PAUSED') return 'live';
-  const kickoff = new Date(match.utcDate);
-  if (new Date() >= kickoff) return 'locked';
+  if (match.status === 'FINISHED') return 'final';
+  if (match.status === 'IN_PLAY' || match.status === 'PAUSED') return 'live';
+  if (new Date() >= new Date(match.utcDate)) return 'locked';
   return 'upcoming';
 }
 
@@ -141,13 +127,12 @@ function StatusBadge({ status }) {
   return <span className={`badge ${cls}`}>{label}</span>;
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
 export default function Fixtures({ user }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rateLimitMsg, setRateLimitMsg] = useState(null);
-  const [predictions, setPredictions] = useState({}); // { matchId: { home, away } }
+  const [predictions, setPredictions] = useState({});
   const [unsaved, setUnsaved] = useState(new Set());
   const [saving, setSaving] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
@@ -155,29 +140,23 @@ export default function Fixtures({ user }) {
   const [filter, setFilter] = useState('all');
   const toastTimer = useRef(null);
 
-  // Load predictions from Firestore on mount
-  useEffect(() => {
-    if (!user) return;
-    loadPredictions();
-  }, [user]);
-
-  // Load fixtures
-  useEffect(() => {
-    fetchFixtures();
-  }, []);
+  useEffect(() => { if (user) loadPredictions(); }, [user]);
+  useEffect(() => { fetchFixtures(); }, []);
 
   async function loadPredictions() {
     try {
-      const q = query(collection(db, 'predictions'), where('userId', '==', user.id));
-      const snap = await getDocs(q);
+      const { data, error } = await supabase
+        .from('predictions')
+        .select('*')
+        .eq('user_id', user.id);
+      if (error) throw error;
       const loaded = {};
-      snap.forEach(docSnap => {
-        const d = docSnap.data();
-        loaded[d.matchId] = { home: String(d.homeScore), away: String(d.awayScore) };
+      (data || []).forEach(row => {
+        loaded[row.match_id] = { home: String(row.home_score), away: String(row.away_score) };
       });
       setPredictions(loaded);
     } catch (e) {
-      console.warn('Could not load predictions from Firestore:', e);
+      console.warn('Could not load predictions:', e);
     }
   }
 
@@ -186,7 +165,6 @@ export default function Fixtures({ user }) {
     setError(null);
     setRateLimitMsg(null);
 
-    // Check cache
     if (!forceRefresh) {
       try {
         const cached = localStorage.getItem(CACHE_KEY);
@@ -207,7 +185,6 @@ export default function Fixtures({ user }) {
         { headers: { 'X-Auth-Token': API_KEY } }
       );
 
-      // Rate limit handling
       const remaining = res.headers.get('X-Requests-Available-Minute');
       if (res.status === 429 || remaining === '0') {
         setRateLimitMsg('Loading fixtures... rate limit reached. Retrying in 60 seconds.');
@@ -216,23 +193,17 @@ export default function Fixtures({ user }) {
         return;
       }
 
-      if (!res.ok) {
-        throw new Error(`API error ${res.status}: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`API error ${res.status}`);
 
       const json = await res.json();
       const data = json.matches || [];
-
-      // Cache
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
       setMatches(data);
     } catch (e) {
-      // Fallback: try cache even if stale
       try {
         const cached = localStorage.getItem(CACHE_KEY);
         if (cached) {
-          const { data } = JSON.parse(cached);
-          setMatches(data);
+          setMatches(JSON.parse(cached).data);
           setError('Using cached data (offline or API error)');
         } else {
           setError(e.message || 'Failed to load fixtures');
@@ -252,24 +223,21 @@ export default function Fixtures({ user }) {
     toastTimer.current = setTimeout(() => setToastVisible(false), 2500);
   }
 
-  // Auto-save single prediction on blur
   async function handleBlur(matchId) {
     if (!user) return;
     const pred = predictions[matchId];
-    if (!pred || (pred.home === '' && pred.away === '')) return;
-    if (pred.home === '' || pred.away === '') return; // need both
+    if (!pred || pred.home === '' || pred.away === '') return;
 
     try {
-      const docId = `${user.id}_${matchId}`;
-      const batch = writeBatch(db);
-      batch.set(doc(db, 'predictions', docId), {
-        userId: user.id,
-        matchId: Number(matchId),
-        homeScore: Number(pred.home),
-        awayScore: Number(pred.away),
-        updatedAt: new Date(),
+      const { error } = await supabase.from('predictions').upsert({
+        id: `${user.id}_${matchId}`,
+        user_id: user.id,
+        match_id: Number(matchId),
+        home_score: Number(pred.home),
+        away_score: Number(pred.away),
+        updated_at: new Date().toISOString(),
       });
-      await batch.commit();
+      if (error) throw error;
       setUnsaved(prev => { const s = new Set(prev); s.delete(matchId); return s; });
       showToast('Saved ✓');
     } catch (e) {
@@ -279,44 +247,39 @@ export default function Fixtures({ user }) {
   }
 
   function handleScoreChange(matchId, side, value) {
-    // Only allow 0-20
     const sanitized = value.replace(/[^0-9]/g, '').slice(0, 2);
     const num = parseInt(sanitized, 10);
     if (sanitized !== '' && (num < 0 || num > 20)) return;
-
     setPredictions(prev => ({
       ...prev,
-      [matchId]: {
-        ...(prev[matchId] || {}),
-        [side]: sanitized,
-      }
+      [matchId]: { ...(prev[matchId] || {}), [side]: sanitized },
     }));
     setUnsaved(prev => new Set([...prev, matchId]));
   }
 
-  // Save all unsaved predictions
   async function saveAll() {
     if (!user || unsaved.size === 0) return;
     setSaving(true);
     try {
-      const batch = writeBatch(db);
-      let count = 0;
+      const rows = [];
       for (const matchId of unsaved) {
         const pred = predictions[matchId];
         if (!pred || pred.home === '' || pred.away === '') continue;
-        const docId = `${user.id}_${matchId}`;
-        batch.set(doc(db, 'predictions', docId), {
-          userId: user.id,
-          matchId: Number(matchId),
-          homeScore: Number(pred.home),
-          awayScore: Number(pred.away),
-          updatedAt: new Date(),
+        rows.push({
+          id: `${user.id}_${matchId}`,
+          user_id: user.id,
+          match_id: Number(matchId),
+          home_score: Number(pred.home),
+          away_score: Number(pred.away),
+          updated_at: new Date().toISOString(),
         });
-        count++;
       }
-      if (count > 0) await batch.commit();
+      if (rows.length > 0) {
+        const { error } = await supabase.from('predictions').upsert(rows);
+        if (error) throw error;
+      }
       setUnsaved(new Set());
-      showToast(`${count} prediction${count !== 1 ? 's' : ''} saved! ✓`);
+      showToast(`${rows.length} prediction${rows.length !== 1 ? 's' : ''} saved! ✓`);
     } catch (e) {
       console.error(e);
       showToast('Save failed — check connection');
@@ -325,7 +288,6 @@ export default function Fixtures({ user }) {
     }
   }
 
-  // Group matches by date
   const grouped = React.useMemo(() => {
     const result = {};
     const filtered = filter === 'all' ? matches : matches.filter(m => {
@@ -344,10 +306,9 @@ export default function Fixtures({ user }) {
   }, [matches, filter, predictions]);
 
   const dateKeys = Object.keys(grouped).sort((a, b) => {
-    // Sort by original date
     const da = grouped[a].matches[0]?.utcDate;
-    const db2 = grouped[b].matches[0]?.utcDate;
-    return new Date(da) - new Date(db2);
+    const db = grouped[b].matches[0]?.utcDate;
+    return new Date(da) - new Date(db);
   });
 
   if (loading) {
@@ -361,7 +322,6 @@ export default function Fixtures({ user }) {
 
   return (
     <div>
-      {/* Filter chips */}
       <div className="filter-bar">
         {['all', 'group', 'knockout', 'upcoming', 'my'].map(f => (
           <button
@@ -383,7 +343,6 @@ export default function Fixtures({ user }) {
           <p style={{ fontSize: '0.85rem', color: '#666', fontWeight: 600 }}>⏳ {rateLimitMsg}</p>
         </div>
       )}
-
       {error && (
         <div className="card card-sm" style={{ margin: '12px', background: '#fff3f3', borderLeft: '4px solid #ffcdd2' }}>
           <p style={{ fontSize: '0.85rem', color: '#c62828', fontWeight: 600 }}>⚠️ {error}</p>
@@ -394,9 +353,7 @@ export default function Fixtures({ user }) {
         <div className="empty-state" style={{ paddingTop: 60 }}>
           <div className="empty-icon">📅</div>
           <div className="empty-text">No fixtures available yet.<br />Check back soon!</div>
-          <button className="btn btn-gold" style={{ marginTop: 20 }} onClick={() => fetchFixtures(true)}>
-            🔄 Refresh
-          </button>
+          <button className="btn btn-gold" style={{ marginTop: 20 }} onClick={() => fetchFixtures(true)}>🔄 Refresh</button>
         </div>
       )}
 
@@ -409,11 +366,9 @@ export default function Fixtures({ user }) {
 
       {dateKeys.map(key => (
         <div className="date-group" key={key}>
-          <div className="date-header">
-            📅 {grouped[key].label}
-          </div>
+          <div className="date-header">📅 {grouped[key].label}</div>
           <div className="card">
-            {grouped[key].matches.map((match, idx) => {
+            {grouped[key].matches.map(match => {
               const status = getMatchStatus(match);
               const isLocked = status === 'locked' || status === 'live' || status === 'final';
               const homeName = match.homeTeam?.name || 'TBD';
@@ -422,46 +377,29 @@ export default function Fixtures({ user }) {
               const awayFlag = match.awayTeam?.name ? getFlag(match.awayTeam.name) : '⚽';
               const pred = predictions[match.id] || { home: '', away: '' };
               const hasPred = pred.home !== '' && pred.away !== '';
-
-              // Show actual score if finished
-              const actualHome = status === 'final' && match.score?.fullTime?.home != null
-                ? String(match.score.fullTime.home) : null;
-              const actualAway = status === 'final' && match.score?.fullTime?.away != null
-                ? String(match.score.fullTime.away) : null;
+              const actualHome = status === 'final' && match.score?.fullTime?.home != null ? String(match.score.fullTime.home) : null;
+              const actualAway = status === 'final' && match.score?.fullTime?.away != null ? String(match.score.fullTime.away) : null;
 
               return (
-                <div
-                  key={match.id}
-                  className={`match-row${isLocked ? ' locked' : ''}${hasPred ? ' has-prediction' : ''}`}
-                >
-                  {/* Home team */}
+                <div key={match.id} className={`match-row${isLocked ? ' locked' : ''}${hasPred ? ' has-prediction' : ''}`}>
                   <div className="team-side home">
                     <span className="team-name" title={homeName}>{homeName}</span>
                     <span className="team-flag">{homeFlag}</span>
                   </div>
 
-                  {/* Score inputs / actual score */}
                   <div className="match-center">
                     <div className="score-input-wrapper">
                       {status === 'final' ? (
                         <>
-                          <div className="score-input locked" style={{ display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.5rem' }}>
-                            {actualHome}
-                          </div>
+                          <div className="score-input locked" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>{actualHome}</div>
                           <span className="score-separator">:</span>
-                          <div className="score-input locked" style={{ display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.5rem' }}>
-                            {actualAway}
-                          </div>
+                          <div className="score-input locked" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>{actualAway}</div>
                         </>
                       ) : (
                         <>
                           <input
                             className={`score-input${isLocked ? ' locked' : ''}`}
-                            type="number"
-                            inputMode="numeric"
-                            min="0"
-                            max="20"
-                            placeholder="?"
+                            type="number" inputMode="numeric" min="0" max="20" placeholder="?"
                             value={pred.home}
                             onChange={e => !isLocked && handleScoreChange(match.id, 'home', e.target.value)}
                             onBlur={() => !isLocked && handleBlur(match.id)}
@@ -471,11 +409,7 @@ export default function Fixtures({ user }) {
                           <span className="score-separator">:</span>
                           <input
                             className={`score-input${isLocked ? ' locked' : ''}`}
-                            type="number"
-                            inputMode="numeric"
-                            min="0"
-                            max="20"
-                            placeholder="?"
+                            type="number" inputMode="numeric" min="0" max="20" placeholder="?"
                             value={pred.away}
                             onChange={e => !isLocked && handleScoreChange(match.id, 'away', e.target.value)}
                             onBlur={() => !isLocked && handleBlur(match.id)}
@@ -489,7 +423,6 @@ export default function Fixtures({ user }) {
                     <StatusBadge status={status} />
                   </div>
 
-                  {/* Away team */}
                   <div className="team-side away">
                     <span className="team-flag">{awayFlag}</span>
                     <span className="team-name" title={awayName}>{awayName}</span>
@@ -501,35 +434,23 @@ export default function Fixtures({ user }) {
         </div>
       ))}
 
-      {/* Save bar */}
       {unsaved.size > 0 && (
         <div className="save-bar">
           <span className="save-bar-text">
             <span className="unsaved-dot" />
             {unsaved.size} unsaved prediction{unsaved.size !== 1 ? 's' : ''}
           </span>
-          <button
-            className="btn btn-gold"
-            onClick={saveAll}
-            disabled={saving}
-            style={{ minHeight: 40, padding: '8px 20px', fontSize: '0.9rem' }}
-          >
+          <button className="btn btn-gold" onClick={saveAll} disabled={saving} style={{ minHeight: 40, padding: '8px 20px', fontSize: '0.9rem' }}>
             {saving ? 'Saving...' : 'Save All ✓'}
           </button>
         </div>
       )}
 
-      {/* Refresh */}
       <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
-        <button className="refresh-btn" onClick={() => fetchFixtures(true)}>
-          🔄 Refresh Fixtures
-        </button>
+        <button className="refresh-btn" onClick={() => fetchFixtures(true)}>🔄 Refresh Fixtures</button>
       </div>
 
-      {/* Toast */}
-      <div className={`toast${toastVisible ? ' show' : ''}`}>
-        {toastMsg}
-      </div>
+      <div className={`toast${toastVisible ? ' show' : ''}`}>{toastMsg}</div>
     </div>
   );
 }

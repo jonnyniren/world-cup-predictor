@@ -1,0 +1,253 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { db } from '../firebase.js';
+import { collection, getDocs } from 'firebase/firestore';
+
+const API_KEY = import.meta.env.VITE_FOOTBALL_API_KEY || 'f882d1fa200843c78dc1d9da8e200b34';
+const CACHE_KEY = 'wc2026_fixtures_cache';
+
+function getResult(home, away) {
+  if (home > away) return 'home';
+  if (away > home) return 'away';
+  return 'draw';
+}
+
+async function fetchFinishedMatches() {
+  // Try cache first
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { data } = JSON.parse(cached);
+      return (data || []).filter(m => m.status === 'FINISHED');
+    }
+  } catch { /* ignore */ }
+
+  // Fetch fresh
+  const res = await fetch(
+    'https://api.football-data.org/v4/competitions/WC/matches?season=2026',
+    { headers: { 'X-Auth-Token': API_KEY } }
+  );
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  const json = await res.json();
+  const data = json.matches || [];
+  // Update cache
+  localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
+  return data.filter(m => m.status === 'FINISHED');
+}
+
+function computeLeaderboard(users, predictions, finishedMatches) {
+  // Build lookup: matchId -> result
+  const matchResults = {};
+  for (const m of finishedMatches) {
+    matchResults[m.id] = {
+      home: m.score?.fullTime?.home,
+      away: m.score?.fullTime?.away,
+    };
+  }
+
+  // Group predictions by userId
+  const predsByUser = {};
+  for (const p of predictions) {
+    if (!predsByUser[p.userId]) predsByUser[p.userId] = [];
+    predsByUser[p.userId].push(p);
+  }
+
+  return users.map(u => {
+    let pts = 0, correctScores = 0, correctResults = 0;
+    const userPreds = predsByUser[u.id] || [];
+
+    for (const pred of userPreds) {
+      const result = matchResults[pred.matchId];
+      if (!result || result.home == null || result.away == null) continue;
+
+      const predHome = Number(pred.homeScore);
+      const predAway = Number(pred.awayScore);
+      const actualHome = Number(result.home);
+      const actualAway = Number(result.away);
+
+      if (predHome === actualHome && predAway === actualAway) {
+        pts += 3;
+        correctScores += 1;
+      } else if (getResult(predHome, predAway) === getResult(actualHome, actualAway)) {
+        pts += 1;
+        correctResults += 1;
+      }
+    }
+
+    return {
+      ...u,
+      pts,
+      correctScores,
+      correctResults,
+      predictions: userPreds.length,
+    };
+  }).sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.correctScores !== a.correctScores) return b.correctScores - a.correctScores;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export default function Leaderboard({ currentUser }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Parallel fetch
+      const [usersSnap, predsSnap, finishedMatches] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'predictions')),
+        fetchFinishedMatches().catch(() => []),
+      ]);
+
+      const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const predictions = predsSnap.docs.map(d => d.data());
+
+      const board = computeLeaderboard(users, predictions, finishedMatches);
+      setRows(board);
+      setLastUpdated(new Date());
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Failed to load leaderboard');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const rankIcon = (rank) => {
+    if (rank === 1) return <span className="rank-gold">🥇</span>;
+    if (rank === 2) return <span className="rank-silver">🥈</span>;
+    if (rank === 3) return <span className="rank-bronze">🥉</span>;
+    return <span style={{ fontWeight: 700, color: '#555' }}>{rank}</span>;
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <span className="loading-text">Computing the leaderboard... 🏆</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div>
+        <div className="error-card" style={{ margin: 12 }}>
+          <div className="error-icon">😬</div>
+          <div className="error-title">Couldn't load leaderboard</div>
+          <div className="error-msg">{error}</div>
+          <button className="btn btn-primary" onClick={load}>Try Again</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="leaderboard-header">
+        <div className="leaderboard-title">🏆 Leaderboard</div>
+        <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', marginTop: 4 }}>
+          3pts = exact score · 1pt = correct result
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <button className="refresh-btn" onClick={load}>
+            🔄 Refresh
+          </button>
+        </div>
+        {lastUpdated && (
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem', marginTop: 6 }}>
+            Updated {lastUpdated.toLocaleTimeString('en-GB')}
+          </div>
+        )}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🌟</div>
+          <div className="empty-text">No players yet!<br />Be the first to make predictions.</div>
+        </div>
+      ) : (
+        <div className="leaderboard-table-wrap">
+          <table className="leaderboard-table">
+            <thead>
+              <tr>
+                <th className="center">#</th>
+                <th className="center">🎭</th>
+                <th>Player</th>
+                <th className="center">Pts</th>
+                <th className="center">⚽ Exact</th>
+                <th className="center">✓ Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => {
+                const rank = idx + 1;
+                const isMe = currentUser && row.id === currentUser.id;
+                const hasCelebrate = row.correctScores > 0;
+
+                return (
+                  <tr
+                    key={row.id}
+                    className={[
+                      isMe ? 'current-user' : '',
+                      hasCelebrate ? 'has-score' : '',
+                    ].filter(Boolean).join(' ')}
+                  >
+                    <td className="rank-cell center">{rankIcon(rank)}</td>
+                    <td className="avatar-cell center">
+                      <span className={hasCelebrate ? 'celebrate-emoji' : ''}>
+                        {row.avatar || '⚽'}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: isMe ? 800 : 600 }}>
+                        {row.name || 'Unknown'}
+                      </span>
+                      {isMe && (
+                        <span style={{
+                          fontSize: '0.7rem',
+                          background: '#FFD700',
+                          color: '#333',
+                          borderRadius: 8,
+                          padding: '1px 6px',
+                          marginLeft: 6,
+                          fontWeight: 700,
+                        }}>YOU</span>
+                      )}
+                    </td>
+                    <td className="pts-cell center">
+                      {hasCelebrate ? (
+                        <span className={`pts-badge${row.pts >= 3 ? ' pts-3' : ''}`}>
+                          {row.pts}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#999' }}>{row.pts}</span>
+                      )}
+                    </td>
+                    <td className="center" style={{ color: row.correctScores > 0 ? '#d4a000' : '#999' }}>
+                      {row.correctScores > 0 ? `🎉 ${row.correctScores}` : row.correctScores}
+                    </td>
+                    <td className="center" style={{ color: row.correctResults > 0 ? '#00a651' : '#999' }}>
+                      {row.correctResults > 0 ? `✓ ${row.correctResults}` : row.correctResults}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={{ padding: '16px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem' }}>
+        Only finished matches count towards points
+      </div>
+    </div>
+  );
+}

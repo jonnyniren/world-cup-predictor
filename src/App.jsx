@@ -24,6 +24,13 @@ function saveProfiles(profiles) {
   localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
 }
 
+function upsertProfile(profile) {
+  const profiles = getStoredProfiles();
+  const idx = profiles.findIndex(p => p.id === profile.id);
+  if (idx >= 0) profiles[idx] = profile; else profiles.push(profile);
+  saveProfiles(profiles);
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,7 +40,13 @@ export default function App() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(USER_KEY);
-      if (stored) setUser(JSON.parse(stored));
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setUser(parsed);
+        // Migrate: make sure this profile exists in the profiles list
+        // (handles profiles created before the switcher feature existed)
+        upsertProfile(parsed);
+      }
     } catch { /* ignore */ }
     setLoading(false);
   }, []);
@@ -43,17 +56,11 @@ export default function App() {
     const newUser = { id, name, avatar };
 
     localStorage.setItem(USER_KEY, JSON.stringify(newUser));
-
-    // Keep profiles list up to date
-    const profiles = getStoredProfiles();
-    const idx = profiles.findIndex(p => p.id === id);
-    if (idx >= 0) profiles[idx] = newUser; else profiles.push(newUser);
-    saveProfiles(profiles);
+    upsertProfile(newUser);
 
     setUser(newUser);
     setShowWelcome(false);
 
-    // Save to Supabase (upsert works for both new and restored profiles)
     try {
       await supabase.from('users').upsert({ id, name, avatar });
     } catch (e) {
@@ -71,6 +78,10 @@ export default function App() {
     setShowWelcome(true);
   }
 
+  function handleCancelWelcome() {
+    setShowWelcome(false);
+  }
+
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -80,7 +91,12 @@ export default function App() {
   }
 
   if (!user || showWelcome) {
-    return <Welcome onComplete={handleWelcomeComplete} />;
+    return (
+      <Welcome
+        onComplete={handleWelcomeComplete}
+        onCancel={user ? handleCancelWelcome : null}
+      />
+    );
   }
 
   return (

@@ -13,6 +13,14 @@ function getStoredProfiles() {
   try { return JSON.parse(localStorage.getItem(PROFILES_KEY) || '[]'); } catch { return []; }
 }
 
+function Avatar({ value, className, style }) {
+  const v = value || '⚽';
+  if (v.startsWith('&') || v.startsWith('&#')) {
+    return <span className={className} style={style} dangerouslySetInnerHTML={{ __html: v }} />;
+  }
+  return <span className={className} style={style}>{v}</span>;
+}
+
 export default function Navbar({ activeTab, setActiveTab, user, onSwitchProfile, onAddProfile, onUpdateProfile }) {
   const [showModal, setShowModal] = useState(false);
   const [profiles, setProfiles] = useState([]);
@@ -65,7 +73,7 @@ export default function Navbar({ activeTab, setActiveTab, user, onSwitchProfile,
           <span className="navbar-title">⚽ World Cup 2026 🏆</span>
           {user && (
             <button className="profile-btn" onClick={() => setShowModal(true)} aria-label="Switch profile">
-              <span className="navbar-avatar">{user.avatar}</span>
+              <Avatar value={user.avatar} className="navbar-avatar" />
               <span className="profile-btn-name">{user.name}</span>
               <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>▼</span>
             </button>
@@ -133,7 +141,7 @@ export default function Navbar({ activeTab, setActiveTab, user, onSwitchProfile,
                       onClick={() => { if (!user || p.id !== user.id) { onSwitchProfile(p); setShowModal(false); } }}
                       style={{ cursor: user && p.id === user.id ? 'default' : 'pointer' }}
                     >
-                      <span className="profile-item-avatar">{p.avatar}</span>
+                      <Avatar value={p.avatar} className="profile-item-avatar" />
                       <span className="profile-item-name">{p.name}</span>
                       {user && p.id === user.id && <span className="profile-item-badge">Playing</span>}
                     </button>

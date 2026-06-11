@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase.js';
 
+function Avatar({ value, className }) {
+  const v = value || '⚽';
+  if (v.startsWith('&') || v.startsWith('&#')) {
+    return <span className={className} dangerouslySetInnerHTML={{ __html: v }} />;
+  }
+  return <span className={className}>{v}</span>;
+}
+
 const CACHE_KEY = 'wc2026_fixtures_cache';
 
 function getResult(home, away) {
@@ -158,9 +166,8 @@ export default function Leaderboard({ currentUser }) {
                   <tr key={row.id} className={[isMe ? 'current-user' : '', hasCelebrate ? 'has-score' : ''].filter(Boolean).join(' ')}>
                     <td className="rank-cell center">{rankIcon(rank)}</td>
                     <td className="avatar-cell center">
-                      <span className={hasCelebrate ? 'celebrate-emoji' : ''}>{row.avatar || '⚽'}</span>
+                      <Avatar value={row.avatar} className={hasCelebrate ? 'celebrate-emoji' : ''} />
                     </td>
-
                     <td>
                       <span style={{ fontWeight: isMe ? 800 : 600 }}>{row.name || 'Unknown'}</span>
                       {isMe && (

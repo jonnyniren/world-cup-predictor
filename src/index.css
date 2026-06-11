@@ -1075,6 +1075,8 @@ body::before {
   padding: 12px 20px 32px;
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
   animation: slide-up 0.22s ease;
 }
 

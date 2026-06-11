@@ -38,10 +38,11 @@ async function fetchFinishedMatches() {
   }
 }
 
-function computeLeaderboard(users, predictions, finishedMatches) {
-  const matchResults = {};
-  for (const m of finishedMatches) {
-    matchResults[m.id] = { home: m.score?.fullTime?.home, away: m.score?.fullTime?.away };
+function computeLeaderboard(users, predictions, matchResults) {
+  // matchResults: array of {match_id, home_score, away_score} from Supabase
+  const resultsMap = {};
+  for (const r of matchResults) {
+    resultsMap[r.match_id] = { home: r.home_score, away: r.away_score };
   }
 
   const predsByUser = {};
@@ -53,7 +54,7 @@ function computeLeaderboard(users, predictions, finishedMatches) {
   return users.map(u => {
     let pts = 0, correctScores = 0, correctResults = 0;
     for (const pred of (predsByUser[u.id] || [])) {
-      const result = matchResults[pred.match_id];
+      const result = resultsMap[pred.match_id];
       if (!result || result.home == null || result.away == null) continue;
       const pH = Number(pred.home_score), pA = Number(pred.away_score);
       const aH = Number(result.home), aA = Number(result.away);
@@ -78,14 +79,15 @@ export default function Leaderboard({ currentUser }) {
     setLoading(true);
     setError(null);
     try {
-      const [{ data: users, error: uErr }, { data: predictions, error: pErr }, finishedMatches] = await Promise.all([
+      const [{ data: users, error: uErr }, { data: predictions, error: pErr }, { data: matchResults, error: mErr }] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('predictions').select('*'),
-        fetchFinishedMatches().catch(() => []),
+        supabase.from('match_results').select('*'),
       ]);
       if (uErr) throw uErr;
       if (pErr) throw pErr;
-      setRows(computeLeaderboard(users || [], predictions || [], finishedMatches));
+      if (mErr) throw mErr;
+      setRows(computeLeaderboard(users || [], predictions || [], matchResults || []));
       setLastUpdated(new Date());
     } catch (e) {
       console.error(e);

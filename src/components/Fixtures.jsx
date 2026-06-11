@@ -96,8 +96,8 @@ function getDateKey(utcString) {
   catch { return utcString.slice(0, 10); }
 }
 
-function getMatchStatus(match) {
-  if (match.status === 'FINISHED') return 'final';
+function getMatchStatus(match, dbResults = {}) {
+  if (match.status === 'FINISHED' || dbResults[match.id]) return 'final';
   if (match.status === 'IN_PLAY' || match.status === 'PAUSED') return 'live';
   if (new Date() >= new Date(match.utcDate)) return 'locked';
   return 'upcoming';
@@ -132,6 +132,7 @@ function StatusBadge({ status }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Fixtures({ user }) {
   const [matches, setMatches] = useState([]);
+  const [dbResults, setDbResults] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rateLimitMsg, setRateLimitMsg] = useState(null);
@@ -144,7 +145,18 @@ export default function Fixtures({ user }) {
   const toastTimer = useRef(null);
 
   useEffect(() => { if (user?.id) loadPredictions(); }, [user?.id]);
-  useEffect(() => { fetchFixtures(); }, []);
+  useEffect(() => { fetchFixtures(); loadDbResults(); }, []);
+
+  async function loadDbResults() {
+    try {
+      const { data } = await supabase.from('match_results').select('*');
+      if (data && data.length > 0) {
+        const map = {};
+        data.forEach(r => { map[r.match_id] = r; });
+        setDbResults(map);
+      }
+    } catch (e) { console.warn('Could not load match results:', e); }
+  }
 
   async function loadPredictions() {
     try {
@@ -185,6 +197,12 @@ export default function Fixtures({ user }) {
       const data = mergeWithFinishedCache(raw);
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
       setMatches(data);
+      // Persist any newly finished matches to Supabase so all devices benefit
+      const finished = raw.filter(m => m.status === 'FINISHED' && m.score?.fullTime?.home != null);
+      if (finished.length > 0) {
+        const rows = finished.map(m => ({ match_id: m.id, home_score: m.score.fullTime.home, away_score: m.score.fullTime.away }));
+        supabase.from('match_results').upsert(rows).then(() => loadDbResults());
+      }
     } catch (e) {
       try {
         const cached = localStorage.getItem(CACHE_KEY);
@@ -310,7 +328,7 @@ export default function Fixtures({ user }) {
           <div className="date-header">&#128197; {grouped[key].label}</div>
           <div className="card">
             {grouped[key].matches.map(match => {
-              const status = getMatchStatus(match);
+              const status = getMatchStatus(match, dbResults);
               const isLocked = status === 'locked' || status === 'live' || status === 'final';
               const homeName = match.homeTeam?.name || 'TBD';
               const awayName = match.awayTeam?.name || 'TBD';
@@ -318,8 +336,13 @@ export default function Fixtures({ user }) {
               const awayRank = getRanking(match.awayTeam?.name);
               const pred = predictions[match.id] || { home: '', away: '' };
               const hasPred = pred.home !== '' && pred.away !== '';
-              const actualHome = status === 'final' && match.score?.fullTime?.home != null ? String(match.score.fullTime.home) : null;
-              const actualAway = status === 'final' && match.score?.fullTime?.away != null ? String(match.score.fullTime.away) : null;
+              const dbResult = dbResults[match.id];
+              const actualHome = status === 'final'
+                ? (match.score?.fullTime?.home != null ? String(match.score.fullTime.home) : dbResult ? String(dbResult.home_score) : null)
+                : null;
+              const actualAway = status === 'final'
+                ? (match.score?.fullTime?.away != null ? String(match.score.fullTime.away) : dbResult ? String(dbResult.away_score) : null)
+                : null;
               const pointsInfo = status === 'final' ? getPredictionPoints(hasPred ? pred : null, match) : null;
 
               return (

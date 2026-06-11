@@ -87,14 +87,14 @@ export default function App() {
   }
 
   async function handleUpdateProfile(updatedProfile) {
-    localStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
-    upsertProfile(updatedProfile);
-    setUser(updatedProfile);
     try {
       await supabase.from('users').update({ name: updatedProfile.name, avatar: updatedProfile.avatar }).eq('id', updatedProfile.id);
     } catch (e) {
       console.warn('Could not update user:', e);
     }
+    localStorage.setItem(USER_KEY, JSON.stringify(updatedProfile));
+    upsertProfile(updatedProfile);
+    setUser(updatedProfile);
   }
 
   function handleAddProfile() {

@@ -178,7 +178,7 @@ export default function Fixtures({ user }) {
         const cached = localStorage.getItem(CACHE_KEY);
         if (cached) {
           const { data, cachedAt } = JSON.parse(cached);
-          if (Date.now() - cachedAt < CACHE_TTL) { setMatches(mergeWithFinishedCache(data)); setLoading(false); return; }
+          if (Date.now() - cachedAt < CACHE_TTL) { setMatches(mergeWithFinishedCache(data)); await loadDbResults(); setLoading(false); return; }
         }
       } catch { /* ignore */ }
     }
@@ -197,6 +197,8 @@ export default function Fixtures({ user }) {
       const data = mergeWithFinishedCache(raw);
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
       setMatches(data);
+      // Always reload db results alongside fixtures so scores stay in sync
+      await loadDbResults();
       // Persist any newly finished matches to Supabase so all devices benefit
       const finished = raw.filter(m => m.status === 'FINISHED' && m.score?.fullTime?.home != null);
       if (finished.length > 0) {

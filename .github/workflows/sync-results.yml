@@ -1,0 +1,14 @@
+name: Sync Match Results
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync finished match results to Supabase
+        run: |
+          curl -s https://world-cup-predictor-sooty.vercel.app/api/sync-results

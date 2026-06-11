@@ -107,9 +107,10 @@ function getResult(h, a) {
   if (h > a) return 'home'; if (a > h) return 'away'; return 'draw';
 }
 
-function getPredictionPoints(pred, match) {
+function getPredictionPoints(pred, match, dbResult) {
   if (!pred || pred.home === '' || pred.away === '') return null;
-  const aH = match.score?.fullTime?.home, aA = match.score?.fullTime?.away;
+  const aH = match.score?.fullTime?.home ?? dbResult?.home_score;
+  const aA = match.score?.fullTime?.away ?? dbResult?.away_score;
   if (aH == null || aA == null) return null;
   const pH = Number(pred.home), pA = Number(pred.away);
   const actualH = Number(aH), actualA = Number(aA);
@@ -345,7 +346,7 @@ export default function Fixtures({ user }) {
               const actualAway = status === 'final'
                 ? (match.score?.fullTime?.away != null ? String(match.score.fullTime.away) : dbResult ? String(dbResult.away_score) : null)
                 : null;
-              const pointsInfo = status === 'final' ? getPredictionPoints(hasPred ? pred : null, match) : null;
+              const pointsInfo = status === 'final' ? getPredictionPoints(hasPred ? pred : null, match, dbResult) : null;
 
               return (
                 <div key={match.id} className={`match-row${isLocked ? ' locked' : ''}${hasPred && !isLocked ? ' has-prediction' : ''}`}>

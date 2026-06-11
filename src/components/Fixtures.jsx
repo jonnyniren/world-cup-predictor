@@ -142,15 +142,16 @@ export default function Fixtures({ user }) {
   const [filter, setFilter] = useState('all');
   const toastTimer = useRef(null);
 
-  useEffect(() => { if (user) loadPredictions(); }, [user]);
+  useEffect(() => { if (user?.id) loadPredictions(); }, [user?.id]);
   useEffect(() => { fetchFixtures(); }, []);
 
   async function loadPredictions() {
     try {
       const { data, error } = await supabase.from('predictions').select('*').eq('user_id', user.id);
       if (error) throw error;
+      if (!data || data.length === 0) return; // don't overwrite existing predictions with empty
       const loaded = {};
-      (data || []).forEach(row => {
+      data.forEach(row => {
         loaded[row.match_id] = { home: String(row.home_score), away: String(row.away_score) };
       });
       setPredictions(loaded);

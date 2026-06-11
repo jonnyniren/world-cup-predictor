@@ -19,19 +19,20 @@ function getResult(home, away) {
 
 async function fetchFinishedMatches() {
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      const { data } = JSON.parse(cached);
-      return (data || []).filter(m => m.status === 'FINISHED');
-    }
-  } catch { /* ignore */ }
-
-  const res = await fetch('/api/fixtures');
-  if (!res.ok) throw new Error(`API ${res.status}`);
-  const json = await res.json();
-  const data = json.matches || [];
-  localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
-  return data.filter(m => m.status === 'FINISHED');
+    const res = await fetch('/api/fixtures');
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const json = await res.json();
+    const data = json.matches || [];
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
+    return data.filter(m => m.status === 'FINISHED');
+  } catch {
+    // Fall back to local cache if API unavailable
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) return (JSON.parse(cached).data || []).filter(m => m.status === 'FINISHED');
+    } catch { /* ignore */ }
+    return [];
+  }
 }
 
 function computeLeaderboard(users, predictions, finishedMatches) {

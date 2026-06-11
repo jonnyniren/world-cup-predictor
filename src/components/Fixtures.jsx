@@ -71,7 +71,7 @@ function TeamFlag({ name }) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const CACHE_KEY = 'wc2026_fixtures_cache';
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 2 * 60 * 1000;
 
 function formatBST(utcString) {
   if (!utcString) return '';

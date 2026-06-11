@@ -21,8 +21,9 @@ export default async function handler(req, res) {
 
     const data = await upstream.json();
 
-    // Cache at the CDN edge for 5 minutes
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
+    // Tell the CDN not to cache — let the client handle its own 2-min cache.
+    // CDN caching caused inconsistent results across edge nodes during live matches.
+    res.setHeader('Cache-Control', 'no-store');
     return res.json(data);
   } catch (e) {
     return res.status(500).json({ error: e.message });

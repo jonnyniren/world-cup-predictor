@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { supabase } from '../supabase.js';
 
 const AVATARS = [
-  '&#9917;','&#127942;','&#129409;','&#129423;','&#129413;','&#11088;','&#128081;','&#128293;','&#11088;','&#127919;','&#128170;','&#127914;',
-  '&#129418;','&#128058;','&#129419;','&#127752;','&#128640;','&#129412;','&#128009;','&#9889;','&#127754;','&#127912;','&#129464;','&#129354;',
-  '&#127881;','&#127926;','&#129351;','&#127995;','&#128007;','&#128062;','&#129436;','&#128048;','&#128047;','&#129429;','&#128034;','&#129430;',
-  '&#128038;','&#129415;','&#127944;','&#127936;','&#129303;','&#128150;','&#128525;','&#128640;','&#9917;','&#127919;','&#128171;','&#127975;',
+  '⚽','🏆','🦁','🐯','🦅','🌟','👑','🔥','⭐','🎯','💪','🎪',
+  '🦊','🐺','🦋','🌈','🚀','🦄','🐉','⚡','🌊','🎨','🦸','🥊',
+  '🎉','🎸','🏄','🤿','🧗','🏋️','🤸','🥋','🎻','🎺','🥁','🎮',
+  '🌴','🍕','🍦','🌮','🐬','🦈','🦁','🐘','🦒','🦓','🌺','🍀',
 ];
 
 export default function Welcome({ onComplete, onCancel }) {
   const [view, setView] = useState('register');
   const [name, setName] = useState('');
-  const [avatar, setAvatar] = useState('&#9917;');
+  const [avatar, setAvatar] = useState('⚽');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
 
@@ -96,19 +96,18 @@ export default function Welcome({ onComplete, onCancel }) {
   return (
     <div className="welcome-screen">
       <div className="welcome-hero">
-        <span className="welcome-trophy">&#127942;</span>
+        <span className="welcome-trophy">🏆</span>
         <h1 className="welcome-title">World Cup 2026<br />Predictor!</h1>
-        <p className="welcome-subtitle">Predict scores, earn points, top the table! &#9917;</p>
+        <p className="welcome-subtitle">Predict scores, earn points, top the table! ⚽</p>
       </div>
 
       <div className="welcome-card">
 
-        {/* PIN verify overlay */}
         {verifyProfile && (
           <>
-            <button className="back-btn" onClick={() => setVerifyProfile(null)}>&#8592; Back</button>
+            <button className="back-btn" onClick={() => setVerifyProfile(null)}>← Back</button>
             <h2 style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: 8 }}>
-              {verifyProfile.avatar || '&#9917;'} {verifyProfile.name}
+              {verifyProfile.avatar} {verifyProfile.name}
             </h2>
             <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: 20, lineHeight: 1.5 }}>
               Enter your 4-digit PIN to restore this profile.
@@ -119,9 +118,9 @@ export default function Welcome({ onComplete, onCancel }) {
                 type="password"
                 inputMode="numeric"
                 maxLength={4}
-                placeholder="&#9679;&#9679;&#9679;&#9679;"
+                placeholder="••••"
                 value={verifyPin}
-                onChange={e => { setVerifyPin(e.target.value.replace(/\D/g,'')); setVerifyError(''); }}
+                onChange={e => { setVerifyPin(e.target.value.replace(/\D/g, '')); setVerifyError(''); }}
                 autoFocus
                 style={{ textAlign: 'center', fontSize: '2rem', letterSpacing: '0.3em' }}
               />
@@ -137,11 +136,10 @@ export default function Welcome({ onComplete, onCancel }) {
 
         {!verifyProfile && (
           <>
-            {/* ── REGISTER ─────────────────────────────────────── */}
             {view === 'register' && (
               <>
                 {onCancel && (
-                  <button className="back-btn" onClick={onCancel}>&#8592; Back to game</button>
+                  <button className="back-btn" onClick={onCancel}>← Back to game</button>
                 )}
                 <form onSubmit={handleSubmit}>
                   <label className="welcome-label" htmlFor="player-name">Your Name</label>
@@ -165,7 +163,7 @@ export default function Welcome({ onComplete, onCancel }) {
                     inputMode="numeric"
                     placeholder="e.g. 1234"
                     value={pin}
-                    onChange={e => { setPin(e.target.value.replace(/\D/g,'').slice(0,4)); setError(''); }}
+                    onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(''); }}
                     maxLength={4}
                     style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.3em' }}
                   />
@@ -176,75 +174,39 @@ export default function Welcome({ onComplete, onCancel }) {
                   )}
                   <label className="welcome-label">Pick Your Avatar</label>
                   <div className="avatar-grid">
-                    {AVATARS.map((emoji, i) => (
+                    {AVATARS.map(emoji => (
                       <button
-                        key={i}
+                        key={emoji}
                         type="button"
                         className={`avatar-btn${avatar === emoji ? ' selected' : ''}`}
                         onClick={() => setAvatar(emoji)}
-                        dangerouslySetInnerHTML={{ __html: emoji }}
-                      />
+                        aria-label={`Select ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
                     ))}
                   </div>
-                  <button type="submit" className="btn btn-primary btn-full" style={{ fontSize: '1.1rem' }}
-                    dangerouslySetInnerHTML={{ __html: `Let's Play! ${avatar}` }}
-                  />
+                  <button type="submit" className="btn btn-primary btn-full" style={{ fontSize: '1.1rem' }}>
+                    Let's Play! {avatar}
+                  </button>
                 </form>
 
                 <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.78rem', color: '#999', lineHeight: 1.4 }}>
-                  3 pts for the exact score &#8226; 1 pt for the correct result
+                  3 pts for the exact score • 1 pt for the correct result
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
-                  <button className="restore-link" onClick={() => setView('restore-code')}>
-                    Have a sync code? Restore your profile
-                  </button>
                   <button className="restore-link" onClick={() => setView('restore-name')}>
-                    Played before but lost your code? Find by name
+                    Played before? Find your profile by name
                   </button>
                 </div>
               </>
             )}
 
-            {/* ── RESTORE BY CODE ──────────────────────────────── */}
-            {view === 'restore-code' && (
-              <>
-                <button className="back-btn" onClick={() => { setView('register'); setCodeError(''); setSyncCode(''); }}>
-                  &#8592; Back
-                </button>
-                <h2 style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: 8 }}>Restore by sync code</h2>
-                <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: 20, lineHeight: 1.5 }}>
-                  Enter the 4-character code shown in the app on your other device. Tap your name in the top corner to find it.
-                </p>
-                <form onSubmit={handleRestoreByCode}>
-                  <input
-                    className="welcome-input"
-                    type="text"
-                    placeholder="e.g. A3F2"
-                    value={syncCode}
-                    onChange={e => { setSyncCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                    maxLength={4}
-                    autoFocus
-                    style={{ textAlign: 'center', fontSize: '2rem', fontWeight: 900, letterSpacing: '0.3em' }}
-                  />
-                  {codeError && (
-                    <p style={{ color: '#e63946', fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>{codeError}</p>
-                  )}
-                  <button type="submit" className="btn btn-primary btn-full" disabled={codeLoading}>
-                    {codeLoading ? 'Searching...' : 'Restore My Profile'}
-                  </button>
-                </form>
-                <button className="restore-link" style={{ marginTop: 12 }} onClick={() => setView('restore-name')}>
-                  Don't have your code? Find by name instead
-                </button>
-              </>
-            )}
-
-            {/* ── RESTORE BY NAME ──────────────────────────────── */}
             {view === 'restore-name' && (
               <>
                 <button className="back-btn" onClick={() => { setView('register'); setNameError(''); setSearchName(''); setNameResults(null); }}>
-                  &#8592; Back
+                  ← Back
                 </button>
                 <h2 style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: 8 }}>Find your profile by name</h2>
                 <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: 20, lineHeight: 1.5 }}>
@@ -263,7 +225,7 @@ export default function Welcome({ onComplete, onCancel }) {
                     <p style={{ color: '#e63946', fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>{nameError}</p>
                   )}
                   <button type="submit" className="btn btn-primary btn-full" disabled={nameLoading}>
-                    {nameLoading ? 'Searching...' : '&#128269; Search'}
+                    {nameLoading ? 'Searching...' : '🔍 Search'}
                   </button>
                 </form>
 
@@ -285,9 +247,9 @@ export default function Welcome({ onComplete, onCancel }) {
                           className="profile-item"
                           onClick={() => handleSelectProfile(p)}
                         >
-                          <span className="profile-item-avatar">{p.avatar || '&#9917;'}</span>
+                          <span className="profile-item-avatar">{p.avatar || '⚽'}</span>
                           <span className="profile-item-name">{p.name}</span>
-                          {p.pin && <span style={{ fontSize: '0.7rem', color: '#888' }}>&#128274;</span>}
+                          {p.pin && <span style={{ fontSize: '0.7rem', color: '#888' }}>🔒</span>}
                         </button>
                       ))}
                     </div>

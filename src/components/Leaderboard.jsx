@@ -160,6 +160,7 @@ export default function Leaderboard({ currentUser }) {
                     <td className="avatar-cell center">
                       <span className={hasCelebrate ? 'celebrate-emoji' : ''}>{row.avatar || '⚽'}</span>
                     </td>
+
                     <td>
                       <span style={{ fontWeight: isMe ? 800 : 600 }}>{row.name || 'Unknown'}</span>
                       {isMe && (

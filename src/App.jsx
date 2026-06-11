@@ -43,14 +43,16 @@ export default function App() {
         const stored = localStorage.getItem(USER_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          // Verify profile still exists in Supabase; clear if deleted
-          const { data } = await supabase.from('users').select('id').eq('id', parsed.id).maybeSingle();
+          // Fetch latest data from Supabase so changes on other devices sync back
+          const { data } = await supabase.from('users').select('id,name,avatar').eq('id', parsed.id).maybeSingle();
           if (!data) {
             localStorage.removeItem(USER_KEY);
             localStorage.removeItem(PROFILES_KEY);
           } else {
-            setUser(parsed);
-            upsertProfile(parsed);
+            const synced = { id: data.id, name: data.name, avatar: data.avatar };
+            localStorage.setItem(USER_KEY, JSON.stringify(synced));
+            upsertProfile(synced);
+            setUser(synced);
           }
         }
       } catch { /* ignore — show registration on any error */ }
@@ -89,7 +91,7 @@ export default function App() {
     upsertProfile(updatedProfile);
     setUser(updatedProfile);
     try {
-      await supabase.from('users').update({ name: updatedProfile.name }).eq('id', updatedProfile.id);
+      await supabase.from('users').update({ name: updatedProfile.name, avatar: updatedProfile.avatar }).eq('id', updatedProfile.id);
     } catch (e) {
       console.warn('Could not update user:', e);
     }

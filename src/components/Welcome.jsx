@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase.js';
 
+function Avatar({ value }) {
+  const v = value || '⚽';
+  if (v.startsWith('&') || v.startsWith('&#')) {
+    return <span dangerouslySetInnerHTML={{ __html: v }} />;
+  }
+  return <span>{v}</span>;
+}
+
 const AVATARS = [
   '⚽','🏆','🦁','🐯','🦅','🌟','👑','🔥','⭐','🎯','💪','🎪',
   '🦊','🐺','🦋','🌈','🚀','🦄','🐉','⚡','🌊','🎨','🦸','🥊',
@@ -107,7 +115,7 @@ export default function Welcome({ onComplete, onCancel }) {
           <>
             <button className="back-btn" onClick={() => setVerifyProfile(null)}>← Back</button>
             <h2 style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: 8 }}>
-              {verifyProfile.avatar} {verifyProfile.name}
+              <Avatar value={verifyProfile.avatar} /> {verifyProfile.name}
             </h2>
             <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: 20, lineHeight: 1.5 }}>
               Enter your 4-digit PIN to restore this profile.
@@ -247,7 +255,7 @@ export default function Welcome({ onComplete, onCancel }) {
                           className="profile-item"
                           onClick={() => handleSelectProfile(p)}
                         >
-                          <span className="profile-item-avatar">{p.avatar || '⚽'}</span>
+                          <span className="profile-item-avatar"><Avatar value={p.avatar} /></span>
                           <span className="profile-item-name">{p.name}</span>
                           {p.pin && <span style={{ fontSize: '0.7rem', color: '#888' }}>🔒</span>}
                         </button>

@@ -92,6 +92,8 @@ export default function Leaderboard({ currentUser }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  // Reload when current user's profile changes (e.g. after editing name/avatar)
+  useEffect(() => { if (currentUser) load(); }, [currentUser?.name, currentUser?.avatar]);
 
   const rankIcon = rank => {
     if (rank === 1) return <span className="rank-gold">🥇</span>;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase.js';
 import { getRanking, getRankTier } from '../rankings.js';
+import { updateFinishedCache, mergeWithFinishedCache } from '../finishedCache.js';
 
 // ── Flag images via flagcdn.com (works on all platforms including Windows) ────
 const FLAG_CODES = {
@@ -165,7 +166,7 @@ export default function Fixtures({ user }) {
         const cached = localStorage.getItem(CACHE_KEY);
         if (cached) {
           const { data, cachedAt } = JSON.parse(cached);
-          if (Date.now() - cachedAt < CACHE_TTL) { setMatches(data); setLoading(false); return; }
+          if (Date.now() - cachedAt < CACHE_TTL) { setMatches(mergeWithFinishedCache(data)); setLoading(false); return; }
         }
       } catch { /* ignore */ }
     }
@@ -179,7 +180,9 @@ export default function Fixtures({ user }) {
       }
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const json = await res.json();
-      const data = json.matches || [];
+      const raw = json.matches || [];
+      updateFinishedCache(raw);
+      const data = mergeWithFinishedCache(raw);
       localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
       setMatches(data);
     } catch (e) {

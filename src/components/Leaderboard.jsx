@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase.js';
+import { updateFinishedCache, mergeWithFinishedCache } from '../finishedCache.js';
 
 function Avatar({ value, className }) {
   const v = value || '⚽';
@@ -22,7 +23,9 @@ async function fetchFinishedMatches() {
     const res = await fetch('/api/fixtures');
     if (!res.ok) throw new Error(`API ${res.status}`);
     const json = await res.json();
-    const data = json.matches || [];
+    const raw = json.matches || [];
+    updateFinishedCache(raw);
+    const data = mergeWithFinishedCache(raw);
     localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
     return data.filter(m => m.status === 'FINISHED');
   } catch {

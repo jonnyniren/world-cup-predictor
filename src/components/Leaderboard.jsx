@@ -79,15 +79,26 @@ export default function Leaderboard({ currentUser }) {
     setLoading(true);
     setError(null);
     try {
-      const [{ data: users, error: uErr }, { data: predictions, error: pErr }, { data: matchResults, error: mErr }] = await Promise.all([
+      // Fetch predictions in pages to avoid Supabase 1000-row default limit
+      let allPredictions = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase.from('predictions').select('*').range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allPredictions = allPredictions.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+
+      const [{ data: users, error: uErr }, { data: matchResults, error: mErr }] = await Promise.all([
         supabase.from('users').select('*').limit(10000),
-        supabase.from('predictions').select('*').limit(10000),
         supabase.from('match_results').select('*'),
       ]);
       if (uErr) throw uErr;
-      if (pErr) throw pErr;
       if (mErr) throw mErr;
-      setRows(computeLeaderboard(users || [], predictions || [], matchResults || []));
+      setRows(computeLeaderboard(users || [], allPredictions, matchResults || []));
       setLastUpdated(new Date());
     } catch (e) {
       console.error(e);

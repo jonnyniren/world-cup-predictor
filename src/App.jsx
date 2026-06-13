@@ -36,6 +36,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('fixtures');
   const [showWelcome, setShowWelcome] = useState(false);
+  const [leaderboardKey, setLeaderboardKey] = useState(0);
 
   useEffect(() => {
     async function init() {
@@ -78,6 +79,11 @@ export default function App() {
     } catch (e) {
       console.warn('Could not save user:', e);
     }
+  }
+
+  function handleSetActiveTab(tab) {
+    if (tab === 'leaderboard') setLeaderboardKey(k => k + 1);
+    setActiveTab(tab);
   }
 
   function handleSwitchProfile(profile) {
@@ -126,14 +132,14 @@ export default function App() {
     <div className="app-container">
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSetActiveTab}
         user={user}
         onSwitchProfile={handleSwitchProfile}
         onAddProfile={handleAddProfile}
         onUpdateProfile={handleUpdateProfile}
       />
       {activeTab === 'fixtures' && <Fixtures user={user} />}
-      {activeTab === 'leaderboard' && <Leaderboard currentUser={user} />}
+      {activeTab === 'leaderboard' && <Leaderboard key={leaderboardKey} currentUser={user} />}
     </div>
   );
 }

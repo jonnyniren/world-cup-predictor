@@ -80,8 +80,8 @@ export default function Leaderboard({ currentUser }) {
     setError(null);
     try {
       const [{ data: users, error: uErr }, { data: predictions, error: pErr }, { data: matchResults, error: mErr }] = await Promise.all([
-        supabase.from('users').select('*'),
-        supabase.from('predictions').select('*'),
+        supabase.from('users').select('*').limit(10000),
+        supabase.from('predictions').select('*').limit(10000),
         supabase.from('match_results').select('*'),
       ]);
       if (uErr) throw uErr;

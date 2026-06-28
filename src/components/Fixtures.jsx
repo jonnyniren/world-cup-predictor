@@ -144,9 +144,18 @@ export default function Fixtures({ user }) {
   const [toastVisible, setToastVisible] = useState(false);
   const [filter, setFilter] = useState('all');
   const toastTimer = useRef(null);
+  const scrollTargetRef = useRef(null);
+  const hasScrolled = useRef(false);
 
   useEffect(() => { if (user?.id) loadPredictions(); }, [user?.id]);
   useEffect(() => { fetchFixtures(); loadDbResults(); }, []);
+
+  // After fixtures load, scroll to 3rd-from-last finished match once
+  useEffect(() => {
+    if (loading || hasScrolled.current || !scrollTargetRef.current) return;
+    hasScrolled.current = true;
+    scrollTargetRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, matches, dbResults]);
 
   async function loadDbResults() {
     try {
@@ -283,6 +292,13 @@ export default function Fixtures({ user }) {
     return new Date(da) - new Date(db);
   });
 
+  // Find the match to scroll to: 3rd-from-last finished (or earliest finished if fewer than 3)
+  const allMatchesSorted = dateKeys.flatMap(k => grouped[k].matches);
+  const finishedMatches = allMatchesSorted.filter(m => getMatchStatus(m, dbResults) === 'final');
+  const scrollTargetId = finishedMatches.length > 0
+    ? finishedMatches[Math.max(0, finishedMatches.length - 3)].id
+    : null;
+
   if (loading) {
     return (
       <div className="loading-screen">
@@ -352,7 +368,7 @@ export default function Fixtures({ user }) {
               const pointsInfo = status === 'final' ? getPredictionPoints(hasPred ? pred : null, match, dbResult) : null;
 
               return (
-                <div key={match.id} className={`match-row${isLocked ? ' locked' : ''}${hasPred && !isLocked ? ' has-prediction' : ''}`}>
+                <div key={match.id} ref={match.id === scrollTargetId ? scrollTargetRef : null} className={`match-row${isLocked ? ' locked' : ''}${hasPred && !isLocked ? ' has-prediction' : ''}`}>
                   {/* Home team */}
                   <div className="team-side home">
                     <div className="team-info home">

@@ -143,6 +143,9 @@ export default function Leaderboard({ currentUser }) {
 
   return (
     <div>
+      <div style={{ background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+        ⏱️ Points are based on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count
+      </div>
       <div className="leaderboard-header">
         <div className="leaderboard-title">🏆 Leaderboard</div>
         <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', marginTop: 4 }}>

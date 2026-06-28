@@ -143,9 +143,15 @@ export default function Fixtures({ user }) {
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [navbarHeight, setNavbarHeight] = useState(0);
   const toastTimer = useRef(null);
   const scrollTargetRef = useRef(null);
   const hasScrolled = useRef(false);
+
+  useEffect(() => {
+    const navbarEl = document.querySelector('.navbar');
+    if (navbarEl) setNavbarHeight(navbarEl.getBoundingClientRect().height);
+  }, []);
 
   useEffect(() => { if (user?.id) loadPredictions(); }, [user?.id]);
   useEffect(() => { fetchFixtures(); loadDbResults(); }, []);
@@ -154,14 +160,12 @@ export default function Fixtures({ user }) {
   useEffect(() => {
     if (loading || hasScrolled.current || !scrollTargetRef.current) return;
     hasScrolled.current = true;
-    const navbarEl = document.querySelector('.navbar');
     const stickyBarEl = document.querySelector('.fixtures-sticky-bar');
-    const navbarH = navbarEl ? navbarEl.getBoundingClientRect().height : 0;
     const stickyH = stickyBarEl ? stickyBarEl.getBoundingClientRect().height : 0;
-    const offset = navbarH + stickyH;
+    const offset = navbarHeight + stickyH;
     const top = scrollTargetRef.current.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({ top, behavior: 'smooth' });
-  }, [loading, matches, dbResults]);
+  }, [loading, matches, dbResults, navbarHeight]);
 
   async function loadDbResults() {
     try {
@@ -316,7 +320,7 @@ export default function Fixtures({ user }) {
 
   return (
     <div>
-      <div className="fixtures-sticky-bar" style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a1f3a' }}>
+      <div className="fixtures-sticky-bar" style={{ position: 'sticky', top: navbarHeight, zIndex: 50, background: '#0a1f3a' }}>
         <div style={{ background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
           ⏱️ Predictions are scored on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count
         </div>

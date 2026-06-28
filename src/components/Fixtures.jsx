@@ -310,15 +310,17 @@ export default function Fixtures({ user }) {
 
   return (
     <div>
-      <div style={{ background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-        ⏱️ Predictions are scored on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count
-      </div>
-      <div className="filter-bar">
-        {[['all','All'],['group','Groups'],['knockout','Knockout'],['upcoming','Upcoming']].map(([f, label]) => (
-          <button key={f} className={`filter-chip${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
-            {label}
-          </button>
-        ))}
+      <div style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a1f3a' }}>
+        <div style={{ background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+          ⏱️ Predictions are scored on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count
+        </div>
+        <div className="filter-bar" style={{ background: '#0a1f3a', paddingBottom: 10 }}>
+          {[['all','All'],['group','Groups'],['knockout','Knockout'],['upcoming','Upcoming']].map(([f, label]) => (
+            <button key={f} className={`filter-chip${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {rateLimitMsg && (

@@ -302,12 +302,17 @@ export default function Fixtures({ user }) {
     return new Date(da) - new Date(db);
   });
 
-  // Find the match to scroll to: 3rd-from-last finished (or earliest finished if fewer than 3)
-  const allMatchesSorted = dateKeys.flatMap(k => grouped[k].matches);
-  const finishedMatches = allMatchesSorted.filter(m => getMatchStatus(m, dbResults) === 'final');
-  const scrollTargetId = finishedMatches.length > 0
-    ? finishedMatches[Math.max(0, finishedMatches.length - 3)].id
-    : null;
+  // Find the date group to scroll to: yesterday's matches (day before today in local time).
+  // Falls back to the earliest date group that has finished matches.
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = yesterday.toISOString().slice(0, 10); // YYYY-MM-DD
+  const scrollDateKey = dateKeys.includes(yesterdayKey)
+    ? yesterdayKey
+    : (() => {
+        const withFinished = dateKeys.filter(k => grouped[k].matches.some(m => getMatchStatus(m, dbResults) === 'final'));
+        return withFinished.length > 0 ? withFinished[withFinished.length - 1] : null;
+      })();
 
   if (loading) {
     return (
@@ -358,7 +363,7 @@ export default function Fixtures({ user }) {
       )}
 
       {dateKeys.map(key => (
-        <div className="date-group" key={key}>
+        <div className="date-group" key={key} ref={key === scrollDateKey ? scrollTargetRef : null}>
           <div className="date-header">&#128197; {grouped[key].label}</div>
           <div className="card">
             {grouped[key].matches.map(match => {
@@ -380,7 +385,7 @@ export default function Fixtures({ user }) {
               const pointsInfo = status === 'final' ? getPredictionPoints(hasPred ? pred : null, match, dbResult) : null;
 
               return (
-                <div key={match.id} ref={match.id === scrollTargetId ? scrollTargetRef : null} className={`match-row${isLocked ? ' locked' : ''}${hasPred && !isLocked ? ' has-prediction' : ''}`}>
+                <div key={match.id} className={`match-row${isLocked ? ' locked' : ''}${hasPred && !isLocked ? ' has-prediction' : ''}`}>
                   {/* Home team */}
                   <div className="team-side home">
                     <div className="team-info home">

@@ -154,7 +154,13 @@ export default function Fixtures({ user }) {
   useEffect(() => {
     if (loading || hasScrolled.current || !scrollTargetRef.current) return;
     hasScrolled.current = true;
-    scrollTargetRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const navbarEl = document.querySelector('.navbar');
+    const stickyBarEl = document.querySelector('.fixtures-sticky-bar');
+    const navbarH = navbarEl ? navbarEl.getBoundingClientRect().height : 0;
+    const stickyH = stickyBarEl ? stickyBarEl.getBoundingClientRect().height : 0;
+    const offset = navbarH + stickyH;
+    const top = scrollTargetRef.current.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top, behavior: 'smooth' });
   }, [loading, matches, dbResults]);
 
   async function loadDbResults() {
@@ -310,7 +316,7 @@ export default function Fixtures({ user }) {
 
   return (
     <div>
-      <div style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a1f3a' }}>
+      <div className="fixtures-sticky-bar" style={{ position: 'sticky', top: 0, zIndex: 50, background: '#0a1f3a' }}>
         <div style={{ background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
           ⏱️ Predictions are scored on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count
         </div>

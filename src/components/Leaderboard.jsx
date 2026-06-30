@@ -100,7 +100,7 @@ function computeLeaderboard(users, predictions, matchResults) {
   });
 }
 
-function PredictionSheet({ row, filter, top, onFilterChange, onClose, allPreds, allResults }) {
+function PredictionSheet({ row, filter, top, maxHeight, onFilterChange, onClose, allPreds, allResults }) {
   const resultsMap = {};
   for (const r of allResults) resultsMap[r.match_id] = r;
   const fixtureMap = getFixtureMap();
@@ -141,7 +141,7 @@ function PredictionSheet({ row, filter, top, onFilterChange, onClose, allPreds, 
         background: '#fff',
         borderRadius: '0 0 14px 14px',
         boxShadow: '0 6px 24px rgba(0,0,0,0.22)',
-        maxHeight: `calc(100vh - ${top}px - 20px)`,
+        maxHeight: maxHeight > 80 ? maxHeight : 80,
         display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
@@ -275,12 +275,15 @@ export default function Leaderboard({ currentUser }) {
     const navH = navbarEl ? navbarEl.getBoundingClientRect().height : 0;
     const bannerH = bannerEl ? bannerEl.getBoundingClientRect().height : 0;
     const headerH = navH + bannerH;
-    // Scroll so the tapped row sits just below the sticky headers
+    // Leave ~2 rows of space above the tapped row
+    const twoRows = rowRect.height * 2;
     const rowAbsoluteTop = window.scrollY + rowRect.top;
-    window.scrollTo({ top: rowAbsoluteTop - headerH - 4, behavior: 'smooth' });
-    // Panel opens below the row — after scroll the row will be at headerH
-    const panelTop = headerH + rowRect.height;
-    setExpanded({ id, filter, top: panelTop });
+    window.scrollTo({ top: rowAbsoluteTop - headerH - twoRows, behavior: 'smooth' });
+    // After scroll, row sits at headerH + twoRows from viewport top
+    const panelTop = headerH + twoRows + rowRect.height;
+    // Leave ~2 rows visible below the panel
+    const panelMaxHeight = window.innerHeight - panelTop - twoRows - 16;
+    setExpanded({ id, filter, top: panelTop, maxHeight: panelMaxHeight });
   }
 
   const rankIcon = rank => {
@@ -401,7 +404,8 @@ export default function Leaderboard({ currentUser }) {
             row={row}
             filter={expanded.filter}
             top={expanded.top}
-            onFilterChange={f => setExpanded({ id: expanded.id, filter: f, top: expanded.top })}
+            maxHeight={expanded.maxHeight}
+            onFilterChange={f => setExpanded({ ...expanded, filter: f })}
             onClose={() => setExpanded(null)}
             allPreds={allPreds}
             allResults={allResults}

@@ -100,7 +100,7 @@ function computeLeaderboard(users, predictions, matchResults) {
   });
 }
 
-function PredictionSheet({ row, filter, onFilterChange, onClose, allPreds, allResults }) {
+function PredictionSheet({ row, filter, top, onFilterChange, onClose, allPreds, allResults }) {
   const resultsMap = {};
   for (const r of allResults) resultsMap[r.match_id] = r;
   const fixtureMap = getFixtureMap();
@@ -129,21 +129,21 @@ function PredictionSheet({ row, filter, onFilterChange, onClose, allPreds, allRe
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — only below the anchor row */}
       <div onClick={onClose} style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200,
+        position: 'fixed', top, left: 0, right: 0, bottom: 0,
+        background: 'rgba(0,0,0,0.35)', zIndex: 200,
       }} />
-      {/* Sheet */}
+      {/* Anchored panel */}
       <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 201,
-        background: '#fff', borderRadius: '18px 18px 0 0',
-        boxShadow: '0 -4px 24px rgba(0,0,0,0.18)',
-        maxHeight: '70vh', display: 'flex', flexDirection: 'column',
+        position: 'fixed', top, left: 0, right: 0, zIndex: 201,
+        background: '#fff',
+        borderRadius: '0 0 16px 16px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+        maxHeight: `calc(100vh - ${top}px - 16px)`,
+        display: 'flex', flexDirection: 'column',
         maxWidth: 640, margin: '0 auto',
       }}>
-        {/* Handle */}
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: '#ddd', margin: '10px auto 0' }} />
-
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px 8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -261,8 +261,11 @@ export default function Leaderboard({ currentUser }) {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (currentUser) load(); }, [currentUser?.name, currentUser?.avatar]);
 
-  function handleTap(id, filter) {
-    setExpanded(e => (e?.id === id && e?.filter === filter) ? null : { id, filter });
+  function handleTap(id, filter, e) {
+    const rowEl = e.currentTarget.closest('tr');
+    const rect = rowEl ? rowEl.getBoundingClientRect() : null;
+    const top = rect ? rect.bottom : 120;
+    setExpanded(prev => (prev?.id === id && prev?.filter === filter) ? null : { id, filter, top });
   }
 
   const rankIcon = rank => {
@@ -345,22 +348,22 @@ export default function Leaderboard({ currentUser }) {
                       <td className="avatar-cell center">
                         <Avatar value={row.avatar} className={hasCelebrate ? 'celebrate-emoji' : ''} />
                       </td>
-                      <td onClick={() => handleTap(row.id, 'all')} style={{ cursor: 'pointer' }}>
+                      <td onClick={e => handleTap(row.id, 'all', e)} style={{ cursor: 'pointer' }}>
                         <span style={{ fontWeight: isMe ? 800 : 600 }}>{row.name || 'Unknown'}</span>
                         {isMe && (
                           <span style={{ fontSize: '0.7rem', background: '#FFD700', color: '#333', borderRadius: 8, padding: '1px 6px', marginLeft: 6, fontWeight: 700 }}>YOU</span>
                         )}
                       </td>
-                      <td className="pts-cell center" onClick={() => handleTap(row.id, 'all')} style={{ cursor: 'pointer' }}>
+                      <td className="pts-cell center" onClick={e => handleTap(row.id, 'all', e)} style={{ cursor: 'pointer' }}>
                         {hasCelebrate
                           ? <span className={`pts-badge${row.pts >= 3 ? ' pts-3' : ''}`}>{row.pts}</span>
                           : <span style={{ color: '#999' }}>{row.pts}</span>
                         }
                       </td>
-                      <td className="center" style={{ color: row.correctScores > 0 ? '#d4a000' : '#999', cursor: 'pointer' }} onClick={() => handleTap(row.id, 'exact')}>
+                      <td className="center" style={{ color: row.correctScores > 0 ? '#d4a000' : '#999', cursor: 'pointer' }} onClick={e => handleTap(row.id, 'exact', e)}>
                         {row.correctScores > 0 ? `🎉 ${row.correctScores}` : row.correctScores}
                       </td>
-                      <td className="center" style={{ color: row.correctResults > 0 ? '#00a651' : '#999', cursor: 'pointer' }} onClick={() => handleTap(row.id, 'result')}>
+                      <td className="center" style={{ color: row.correctResults > 0 ? '#00a651' : '#999', cursor: 'pointer' }} onClick={e => handleTap(row.id, 'result', e)}>
                         {row.correctResults > 0 ? `✓ ${row.correctResults}` : row.correctResults}
                       </td>
                     </tr>
@@ -382,7 +385,8 @@ export default function Leaderboard({ currentUser }) {
           <PredictionSheet
             row={row}
             filter={expanded.filter}
-            onFilterChange={f => setExpanded({ id: expanded.id, filter: f })}
+            top={expanded.top}
+            onFilterChange={f => setExpanded({ id: expanded.id, filter: f, top: expanded.top })}
             onClose={() => setExpanded(null)}
             allPreds={allPreds}
             allResults={allResults}

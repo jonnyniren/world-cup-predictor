@@ -40,11 +40,13 @@ export default async function handler(req, res) {
       return res.json({ synced: 0, message: 'No finished matches with scores yet' });
     }
 
-    const rows = finished.map(m => ({
-      match_id: m.id,
-      home_score: m.score.fullTime.home,
-      away_score: m.score.fullTime.away,
-    }));
+    const rows = finished.map(m => {
+      // Use regularTime (90-min score) when available — fullTime includes extra time goals
+      // and for penalty matches the API adds shootout goals onto the score
+      const home = m.score.regularTime?.home ?? m.score.fullTime.home;
+      const away = m.score.regularTime?.away ?? m.score.fullTime.away;
+      return { match_id: m.id, home_score: home, away_score: away };
+    });
 
     const { error } = await supabase.from('match_results').upsert(rows);
     if (error) throw error;

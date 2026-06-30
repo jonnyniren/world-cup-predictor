@@ -222,7 +222,12 @@ export default function Fixtures({ user }) {
       // Persist any newly finished matches to Supabase so all devices benefit
       const finished = raw.filter(m => m.status === 'FINISHED' && m.score?.fullTime?.home != null);
       if (finished.length > 0) {
-        const rows = finished.map(m => ({ match_id: m.id, home_score: m.score.fullTime.home, away_score: m.score.fullTime.away }));
+        // Use regularTime (90-min score) when available — fullTime can include ET/penalty goals
+        const rows = finished.map(m => ({
+          match_id: m.id,
+          home_score: m.score.regularTime?.home ?? m.score.fullTime.home,
+          away_score: m.score.regularTime?.away ?? m.score.fullTime.away,
+        }));
         supabase.from('match_results').upsert(rows).then(() => loadDbResults());
       }
     } catch (e) {
@@ -377,10 +382,10 @@ export default function Fixtures({ user }) {
               const hasPred = pred.home !== '' && pred.away !== '';
               const dbResult = dbResults[match.id];
               const actualHome = status === 'final'
-                ? (match.score?.fullTime?.home != null ? String(match.score.fullTime.home) : dbResult ? String(dbResult.home_score) : null)
+                ? (match.score?.regularTime?.home != null ? String(match.score.regularTime.home) : match.score?.fullTime?.home != null ? String(match.score.fullTime.home) : dbResult ? String(dbResult.home_score) : null)
                 : null;
               const actualAway = status === 'final'
-                ? (match.score?.fullTime?.away != null ? String(match.score.fullTime.away) : dbResult ? String(dbResult.away_score) : null)
+                ? (match.score?.regularTime?.away != null ? String(match.score.regularTime.away) : match.score?.fullTime?.away != null ? String(match.score.fullTime.away) : dbResult ? String(dbResult.away_score) : null)
                 : null;
               const pointsInfo = status === 'final' ? getPredictionPoints(hasPred ? pred : null, match, dbResult) : null;
 

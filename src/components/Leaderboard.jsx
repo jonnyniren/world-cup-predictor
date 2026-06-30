@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabase.js';
 import { updateFinishedCache, mergeWithFinishedCache } from '../finishedCache.js';
 
@@ -74,6 +74,12 @@ export default function Leaderboard({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [navbarHeight, setNavbarHeight] = useState(0);
+
+  useEffect(() => {
+    const navbarEl = document.querySelector('.navbar');
+    if (navbarEl) setNavbarHeight(navbarEl.getBoundingClientRect().height);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,7 +149,7 @@ export default function Leaderboard({ currentUser }) {
 
   return (
     <div>
-      <div style={{ background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+      <div style={{ position: 'sticky', top: navbarHeight, zIndex: 50, background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
         ⏱️ Points are based on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count
       </div>
       <div className="leaderboard-header">

@@ -109,8 +109,9 @@ function getResult(h, a) {
 
 function getPredictionPoints(pred, match, dbResult) {
   if (!pred || pred.home === '' || pred.away === '') return null;
-  const aH = match.score?.fullTime?.home ?? dbResult?.home_score;
-  const aA = match.score?.fullTime?.away ?? dbResult?.away_score;
+  // Prefer dbResult (manually corrected) > regularTime (90-min) > fullTime (may include ET/pens)
+  const aH = dbResult?.home_score ?? match.score?.regularTime?.home ?? match.score?.fullTime?.home;
+  const aA = dbResult?.away_score ?? match.score?.regularTime?.away ?? match.score?.fullTime?.away;
   if (aH == null || aA == null) return null;
   const pH = Number(pred.home), pA = Number(pred.away);
   const actualH = Number(aH), actualA = Number(aA);

@@ -41,10 +41,21 @@ export default async function handler(req, res) {
     }
 
     const rows = finished.map(m => {
-      // Use regularTime (90-min score) when available — fullTime includes extra time goals
-      // and for penalty matches the API adds shootout goals onto the score
-      const home = m.score.regularTime?.home ?? m.score.fullTime.home;
-      const away = m.score.regularTime?.away ?? m.score.fullTime.away;
+      // Always want the 90-minute score only.
+      // Priority: regularTime (explicit 90-min field) → subtract penalties from fullTime
+      // (football-data.org adds penalty shootout goals onto fullTime for PENALTY_SHOOTOUT matches)
+      // → fallback to fullTime as-is for regular matches.
+      let home, away;
+      if (m.score.regularTime?.home != null) {
+        home = m.score.regularTime.home;
+        away = m.score.regularTime.away;
+      } else if (m.score.duration === 'PENALTY_SHOOTOUT' && m.score.penalties?.home != null) {
+        home = m.score.fullTime.home - m.score.penalties.home;
+        away = m.score.fullTime.away - m.score.penalties.away;
+      } else {
+        home = m.score.fullTime.home;
+        away = m.score.fullTime.away;
+      }
       return { match_id: m.id, home_score: home, away_score: away };
     });
 

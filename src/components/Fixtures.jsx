@@ -223,12 +223,20 @@ export default function Fixtures({ user }) {
       // Persist any newly finished matches to Supabase so all devices benefit
       const finished = raw.filter(m => m.status === 'FINISHED' && m.score?.fullTime?.home != null);
       if (finished.length > 0) {
-        // Use regularTime (90-min score) when available — fullTime can include ET/penalty goals
-        const rows = finished.map(m => ({
-          match_id: m.id,
-          home_score: m.score.regularTime?.home ?? m.score.fullTime.home,
-          away_score: m.score.regularTime?.away ?? m.score.fullTime.away,
-        }));
+        const rows = finished.map(m => {
+          let home, away;
+          if (m.score.regularTime?.home != null) {
+            home = m.score.regularTime.home;
+            away = m.score.regularTime.away;
+          } else if (m.score.duration === 'PENALTY_SHOOTOUT' && m.score.penalties?.home != null) {
+            home = m.score.fullTime.home - m.score.penalties.home;
+            away = m.score.fullTime.away - m.score.penalties.away;
+          } else {
+            home = m.score.fullTime.home;
+            away = m.score.fullTime.away;
+          }
+          return { match_id: m.id, home_score: home, away_score: away };
+        });
         supabase.from('match_results').upsert(rows).then(() => loadDbResults());
       }
     } catch (e) {

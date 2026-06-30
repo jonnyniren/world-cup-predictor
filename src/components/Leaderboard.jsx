@@ -30,24 +30,30 @@ const FLAG_CODES = {
   'Honduras': 'hn', 'Jamaica': 'jm', 'New Zealand': 'nz', 'Peru': 'pe',
   'Paraguay': 'py', 'Venezuela': 've', 'Bolivia': 'bo', 'Iraq': 'iq',
   'Uzbekistan': 'uz', 'Indonesia': 'id', 'Thailand': 'th', 'Vietnam': 'vn',
-  'South Africa': 'za', 'New Caledonia': 'nc', 'Fiji': 'fj', 'Tanzania': 'tz',
-  'Zimbabwe': 'zw', 'Cuba': 'cu', 'Haiti': 'ht', 'Guatemala': 'gt', 'El Salvador': 'sv',
+  'South Africa': 'za', 'New Caledonia': 'nc', 'Fiji': 'fj',
 };
 
-const STAGE_LABELS = {
-  'GROUP_STAGE': 'Group Stage',
-  'LAST_16': 'Round of 16',
-  'QUARTER_FINALS': 'Quarter-Final',
-  'SEMI_FINALS': 'Semi-Final',
-  'THIRD_PLACE': '3rd Place',
-  'FINAL': 'Final',
+const TEAM_CODES = {
+  'United States': 'USA', 'USA': 'USA', 'Canada': 'CAN', 'Mexico': 'MEX',
+  'Brazil': 'BRA', 'Argentina': 'ARG', 'Germany': 'GER', 'France': 'FRA',
+  'England': 'ENG', 'Spain': 'ESP', 'Portugal': 'POR', 'Netherlands': 'NED',
+  'Belgium': 'BEL', 'Italy': 'ITA', 'Croatia': 'CRO', 'Morocco': 'MAR',
+  'Japan': 'JPN', 'South Korea': 'KOR', 'Korea Republic': 'KOR',
+  'Australia': 'AUS', 'Saudi Arabia': 'KSA', 'Iran': 'IRN', 'Senegal': 'SEN',
+  'Nigeria': 'NGA', 'Cameroon': 'CMR', 'Ghana': 'GHA', 'Ecuador': 'ECU',
+  'Uruguay': 'URU', 'Colombia': 'COL', 'Chile': 'CHI', 'Switzerland': 'SUI',
+  'Poland': 'POL', 'Serbia': 'SRB', 'Austria': 'AUT', 'Ukraine': 'UKR',
+  'Denmark': 'DEN', 'Norway': 'NOR', 'Sweden': 'SWE', 'Turkey': 'TUR',
+  'Turkiye': 'TUR', 'Greece': 'GRE', 'Czech Republic': 'CZE', 'Czechia': 'CZE',
+  'Romania': 'ROU', 'Slovakia': 'SVK', 'Hungary': 'HUN', 'Scotland': 'SCO',
+  'Wales': 'WAL', 'Northern Ireland': 'NIR', 'Qatar': 'QAT', 'Egypt': 'EGY',
+  'Ivory Coast': 'CIV', "Cote d'Ivoire": 'CIV', 'Cote dIvoire': 'CIV',
+  'DR Congo': 'COD', 'Congo DR': 'COD', 'Algeria': 'ALG', 'Tunisia': 'TUN',
+  'Panama': 'PAN', 'Costa Rica': 'CRC', 'Honduras': 'HON', 'Jamaica': 'JAM',
+  'New Zealand': 'NZL', 'Peru': 'PER', 'Paraguay': 'PAR', 'Venezuela': 'VEN',
+  'Bolivia': 'BOL', 'Iraq': 'IRQ', 'Uzbekistan': 'UZB', 'Indonesia': 'IDN',
+  'South Africa': 'RSA', 'Fiji': 'FIJ', 'New Caledonia': 'NCL',
 };
-
-function TeamFlag({ name }) {
-  const code = FLAG_CODES[name];
-  if (!code) return <span style={{ fontSize: '0.85rem' }}>{name}</span>;
-  return <img src={`https://flagcdn.com/w20/${code}.png`} alt={name} style={{ width: 20, height: 14, objectFit: 'cover', borderRadius: 2, verticalAlign: 'middle' }} />;
-}
 
 function getResult(home, away) {
   if (home > away) return 'home';
@@ -97,7 +103,6 @@ function computeLeaderboard(users, predictions, matchResults) {
 function PredictionPanel({ row, filter, onFilterChange, allPreds, allResults }) {
   const resultsMap = {};
   for (const r of allResults) resultsMap[r.match_id] = r;
-
   const fixtureMap = getFixtureMap();
 
   const scored = [];
@@ -114,35 +119,28 @@ function PredictionPanel({ row, filter, onFilterChange, allPreds, allResults }) 
     if (filter === 'result' && pts !== 1) continue;
     scored.push({ pred, result, pts, match: fixtureMap[pred.match_id] });
   }
-
   scored.sort((a, b) => new Date(b.match?.utcDate || 0) - new Date(a.match?.utcDate || 0));
 
-  const totalAll = allPreds.filter(p => {
-    if (p.user_id !== row.id) return false;
-    const r = resultsMap[p.match_id];
-    if (!r) return false;
-    const pH = Number(p.home_score), pA = Number(p.away_score);
-    const aH = Number(r.home_score), aA = Number(r.away_score);
-    return (pH === aH && pA === aA) || getResult(pH, pA) === getResult(aH, aA);
-  }).length;
+  const tabs = [
+    { key: 'all', label: `All · ${row.correctScores + row.correctResults}` },
+    { key: 'exact', label: `⚽ ${row.correctScores}` },
+    { key: 'result', label: `✓ ${row.correctResults}` },
+  ];
 
   return (
-    <div style={{ background: '#f8f9fa', borderTop: '2px solid #FFD700', borderBottom: '2px solid #FFD700' }}>
-      {/* Tab bar */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', background: '#fff' }}>
-        {[
-          { key: 'all', label: `All (${row.correctScores + row.correctResults})` },
-          { key: 'exact', label: `⚽ Exact (${row.correctScores})` },
-          { key: 'result', label: `✓ Result (${row.correctResults})` },
-        ].map(tab => (
+    <div style={{ background: '#fafafa', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.06)' }}>
+      {/* Pill tabs */}
+      <div style={{ display: 'flex', gap: 6, padding: '8px 10px 6px', background: '#fafafa' }}>
+        {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => onFilterChange(tab.key)}
             style={{
-              flex: 1, border: 'none', padding: '8px 4px', fontSize: '0.72rem', fontWeight: 700,
-              cursor: 'pointer', borderBottom: filter === tab.key ? '3px solid #FFD700' : '3px solid transparent',
-              background: filter === tab.key ? '#fffbea' : '#fff',
-              color: filter === tab.key ? '#333' : '#888',
+              border: 'none', borderRadius: 20, padding: '4px 10px',
+              fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
+              background: filter === tab.key ? '#FFD700' : '#e8e8e8',
+              color: filter === tab.key ? '#333' : '#777',
+              transition: 'all 0.15s',
             }}
           >
             {tab.label}
@@ -150,39 +148,42 @@ function PredictionPanel({ row, filter, onFilterChange, allPreds, allResults }) 
         ))}
       </div>
 
-      {/* Prediction rows */}
-      <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+      {/* Prediction chips */}
+      <div style={{ maxHeight: 260, overflowY: 'auto', padding: '2px 8px 8px' }}>
         {scored.length === 0 ? (
-          <div style={{ padding: '16px', textAlign: 'center', color: '#999', fontSize: '0.82rem' }}>
-            No {filter === 'exact' ? 'exact scores' : filter === 'result' ? 'correct results' : 'correct predictions'} yet
+          <div style={{ padding: '10px', textAlign: 'center', color: '#bbb', fontSize: '0.75rem' }}>
+            None yet
           </div>
-        ) : scored.map(({ pred, result, pts, match }, i) => {
-          const home = match?.homeTeam?.name || `Match ${pred.match_id}`;
-          const away = match?.awayTeam?.name || '';
-          const date = match?.utcDate ? new Date(match.utcDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
-          const stage = STAGE_LABELS[match?.stage] || '';
+        ) : scored.map(({ result, pts, match }, i) => {
+          const home = match?.homeTeam?.name || '?';
+          const away = match?.awayTeam?.name || '?';
+          const homeCode = TEAM_CODES[home] || home.slice(0, 3).toUpperCase();
+          const awayCode = TEAM_CODES[away] || away.slice(0, 3).toUpperCase();
+          const homeFlag = FLAG_CODES[home];
+          const awayFlag = FLAG_CODES[away];
           return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid #eee', background: pts === 3 ? '#fffbea' : '#fff' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.82rem', fontWeight: 600 }}>
-                  <TeamFlag name={home} />
-                  <span style={{ maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{home}</span>
-                  <span style={{ color: '#555', fontWeight: 700 }}>{result.home_score}–{result.away_score}</span>
-                  <span style={{ maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{away}</span>
-                  <TeamFlag name={away} />
-                </div>
-                <div style={{ fontSize: '0.72rem', color: '#888', marginTop: 2 }}>
-                  Predicted: {pred.home_score}–{pred.away_score}
-                  {stage && <span> · {stage}</span>}
-                  {date && <span> · {date}</span>}
-                </div>
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '5px 6px', marginBottom: 4, borderRadius: 8,
+              background: pts === 3 ? '#fffbea' : '#fff',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 600, flex: 1 }}>
+                {homeFlag && <img src={`https://flagcdn.com/w20/${homeFlag}.png`} alt={home} style={{ width: 18, height: 13, objectFit: 'cover', borderRadius: 2 }} />}
+                <span style={{ color: '#444' }}>{homeCode}</span>
+                <span style={{ color: '#888', fontWeight: 400, margin: '0 2px' }}>{result.home_score}–{result.away_score}</span>
+                <span style={{ color: '#444' }}>{awayCode}</span>
+                {awayFlag && <img src={`https://flagcdn.com/w20/${awayFlag}.png`} alt={away} style={{ width: 18, height: 13, objectFit: 'cover', borderRadius: 2 }} />}
               </div>
-              <div style={{ marginLeft: 8, flexShrink: 0 }}>
-                {pts === 3
-                  ? <span style={{ background: '#FFD700', color: '#333', borderRadius: 12, padding: '2px 8px', fontSize: '0.72rem', fontWeight: 800 }}>🎉 3pts</span>
-                  : <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 12, padding: '2px 8px', fontSize: '0.72rem', fontWeight: 800 }}>✓ 1pt</span>
-                }
-              </div>
+              <span style={{
+                flexShrink: 0, marginLeft: 6,
+                background: pts === 3 ? '#FFD700' : '#e8f5e9',
+                color: pts === 3 ? '#333' : '#2e7d32',
+                borderRadius: 10, padding: '2px 7px',
+                fontSize: '0.68rem', fontWeight: 800,
+              }}>
+                {pts === 3 ? '🎉 3' : '✓ 1'}
+              </span>
             </div>
           );
         })}
@@ -308,9 +309,9 @@ export default function Leaderboard({ currentUser }) {
                 <th className="center">#</th>
                 <th className="center">🎭</th>
                 <th>Player</th>
-                <th className="center" style={{ cursor: 'default' }}>Pts</th>
-                <th className="center" title="Tap to see exact scores">⚽ Exact</th>
-                <th className="center" title="Tap to see correct results">✓ Result</th>
+                <th className="center">Pts</th>
+                <th className="center">⚽ Exact</th>
+                <th className="center">✓ Result</th>
               </tr>
             </thead>
             <tbody>
@@ -326,7 +327,7 @@ export default function Leaderboard({ currentUser }) {
                       <td className="avatar-cell center">
                         <Avatar value={row.avatar} className={hasCelebrate ? 'celebrate-emoji' : ''} />
                       </td>
-                      <td>
+                      <td onClick={() => handleTap(row.id, 'all')} style={{ cursor: 'pointer' }}>
                         <span style={{ fontWeight: isMe ? 800 : 600 }}>{row.name || 'Unknown'}</span>
                         {isMe && (
                           <span style={{ fontSize: '0.7rem', background: '#FFD700', color: '#333', borderRadius: 8, padding: '1px 6px', marginLeft: 6, fontWeight: 700 }}>YOU</span>
@@ -339,21 +340,16 @@ export default function Leaderboard({ currentUser }) {
                         }
                       </td>
                       <td className="center" style={{ color: row.correctScores > 0 ? '#d4a000' : '#999', cursor: 'pointer' }} onClick={() => handleTap(row.id, 'exact')}>
-                        {row.correctScores > 0
-                          ? <span style={{ textDecoration: isExpanded && expanded?.filter === 'exact' ? 'underline' : 'none' }}>🎉 {row.correctScores}</span>
-                          : row.correctScores
-                        }
+                        {row.correctScores > 0 ? `🎉 ${row.correctScores}` : row.correctScores}
                       </td>
                       <td className="center" style={{ color: row.correctResults > 0 ? '#00a651' : '#999', cursor: 'pointer' }} onClick={() => handleTap(row.id, 'result')}>
-                        {row.correctResults > 0
-                          ? <span style={{ textDecoration: isExpanded && expanded?.filter === 'result' ? 'underline' : 'none' }}>✓ {row.correctResults}</span>
-                          : row.correctResults
-                        }
+                        {row.correctResults > 0 ? `✓ ${row.correctResults}` : row.correctResults}
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={6} style={{ padding: 0 }}>
+                        <td colSpan={3} style={{ padding: 0, border: 'none' }} />
+                        <td colSpan={3} style={{ padding: '0 0 6px', verticalAlign: 'top' }}>
                           <PredictionPanel
                             row={row}
                             filter={expanded.filter}
@@ -373,7 +369,7 @@ export default function Leaderboard({ currentUser }) {
       )}
 
       <div style={{ padding: '16px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem' }}>
-        Tap any score to see predictions · Only finished matches count
+        Tap any score or name to see predictions · Only finished matches count
       </div>
     </div>
   );

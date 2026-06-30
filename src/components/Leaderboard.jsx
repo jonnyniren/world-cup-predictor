@@ -100,7 +100,7 @@ function computeLeaderboard(users, predictions, matchResults) {
   });
 }
 
-function PredictionPanel({ row, filter, onFilterChange, allPreds, allResults }) {
+function PredictionSheet({ row, filter, onFilterChange, onClose, allPreds, allResults }) {
   const resultsMap = {};
   for (const r of allResults) resultsMap[r.match_id] = r;
   const fixtureMap = getFixtureMap();
@@ -128,67 +128,85 @@ function PredictionPanel({ row, filter, onFilterChange, allPreds, allResults }) 
   ];
 
   return (
-    <div style={{ background: '#fafafa', borderRadius: '0 0 12px 12px', overflow: 'hidden', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.06)' }}>
-      {/* Pill tabs */}
-      <div style={{ display: 'flex', gap: 6, padding: '8px 10px 6px', background: '#fafafa' }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => onFilterChange(tab.key)}
-            style={{
-              border: 'none', borderRadius: 20, padding: '4px 10px',
-              fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-              background: filter === tab.key ? '#FFD700' : '#e8e8e8',
-              color: filter === tab.key ? '#333' : '#777',
-              transition: 'all 0.15s',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200,
+      }} />
+      {/* Sheet */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 201,
+        background: '#fff', borderRadius: '18px 18px 0 0',
+        boxShadow: '0 -4px 24px rgba(0,0,0,0.18)',
+        maxHeight: '70vh', display: 'flex', flexDirection: 'column',
+        maxWidth: 640, margin: '0 auto',
+      }}>
+        {/* Handle */}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: '#ddd', margin: '10px auto 0' }} />
 
-      {/* Prediction chips */}
-      <div style={{ maxHeight: 260, overflowY: 'auto', padding: '2px 8px 8px' }}>
-        {scored.length === 0 ? (
-          <div style={{ padding: '10px', textAlign: 'center', color: '#bbb', fontSize: '0.75rem' }}>
-            None yet
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Avatar value={row.avatar} />
+            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{row.name || 'Unknown'}</span>
           </div>
-        ) : scored.map(({ result, pts, match }, i) => {
-          const home = match?.homeTeam?.name || '?';
-          const away = match?.awayTeam?.name || '?';
-          const homeCode = TEAM_CODES[home] || home.slice(0, 3).toUpperCase();
-          const awayCode = TEAM_CODES[away] || away.slice(0, 3).toUpperCase();
-          const homeFlag = FLAG_CODES[home];
-          const awayFlag = FLAG_CODES[away];
-          return (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '5px 6px', marginBottom: 4, borderRadius: 8,
-              background: pts === 3 ? '#fffbea' : '#fff',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
+          <button onClick={onClose} style={{ background: '#f0f0f0', border: 'none', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>×</button>
+        </div>
+
+        {/* Pill tabs */}
+        <div style={{ display: 'flex', gap: 6, padding: '0 16px 10px' }}>
+          {tabs.map(tab => (
+            <button key={tab.key} onClick={() => onFilterChange(tab.key)} style={{
+              border: 'none', borderRadius: 20, padding: '5px 12px',
+              fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+              background: filter === tab.key ? '#FFD700' : '#efefef',
+              color: filter === tab.key ? '#333' : '#777',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 600, flex: 1 }}>
-                {homeFlag && <img src={`https://flagcdn.com/w20/${homeFlag}.png`} alt={home} style={{ width: 18, height: 13, objectFit: 'cover', borderRadius: 2 }} />}
-                <span style={{ color: '#444' }}>{homeCode}</span>
-                <span style={{ color: '#888', fontWeight: 400, margin: '0 2px' }}>{result.home_score}–{result.away_score}</span>
-                <span style={{ color: '#444' }}>{awayCode}</span>
-                {awayFlag && <img src={`https://flagcdn.com/w20/${awayFlag}.png`} alt={away} style={{ width: 18, height: 13, objectFit: 'cover', borderRadius: 2 }} />}
-              </div>
-              <span style={{
-                flexShrink: 0, marginLeft: 6,
-                background: pts === 3 ? '#FFD700' : '#e8f5e9',
-                color: pts === 3 ? '#333' : '#2e7d32',
-                borderRadius: 10, padding: '2px 7px',
-                fontSize: '0.68rem', fontWeight: 800,
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* List */}
+        <div style={{ overflowY: 'auto', padding: '0 12px 24px', flex: 1 }}>
+          {scored.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#bbb', fontSize: '0.82rem' }}>None yet</div>
+          ) : scored.map(({ result, pts, match }, i) => {
+            const home = match?.homeTeam?.name || '?';
+            const away = match?.awayTeam?.name || '?';
+            const homeCode = TEAM_CODES[home] || home.slice(0, 3).toUpperCase();
+            const awayCode = TEAM_CODES[away] || away.slice(0, 3).toUpperCase();
+            const homeFlag = FLAG_CODES[home];
+            const awayFlag = FLAG_CODES[away];
+            return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '7px 10px', marginBottom: 6, borderRadius: 10,
+                background: pts === 3 ? '#fffbea' : '#f8f8f8',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               }}>
-                {pts === 3 ? '🎉 3' : '✓ 1'}
-              </span>
-            </div>
-          );
-        })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.82rem', fontWeight: 600 }}>
+                  {homeFlag && <img src={`https://flagcdn.com/w20/${homeFlag}.png`} alt={home} style={{ width: 20, height: 14, objectFit: 'cover', borderRadius: 2 }} />}
+                  <span style={{ color: '#444' }}>{homeCode}</span>
+                  <span style={{ color: '#777', fontWeight: 500, margin: '0 3px' }}>{result.home_score}–{result.away_score}</span>
+                  <span style={{ color: '#444' }}>{awayCode}</span>
+                  {awayFlag && <img src={`https://flagcdn.com/w20/${awayFlag}.png`} alt={away} style={{ width: 20, height: 14, objectFit: 'cover', borderRadius: 2 }} />}
+                </div>
+                <span style={{
+                  flexShrink: 0, marginLeft: 8,
+                  background: pts === 3 ? '#FFD700' : '#e8f5e9',
+                  color: pts === 3 ? '#333' : '#2e7d32',
+                  borderRadius: 10, padding: '3px 9px',
+                  fontSize: '0.72rem', fontWeight: 800,
+                }}>
+                  {pts === 3 ? '🎉 3pts' : '✓ 1pt'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -346,20 +364,6 @@ export default function Leaderboard({ currentUser }) {
                         {row.correctResults > 0 ? `✓ ${row.correctResults}` : row.correctResults}
                       </td>
                     </tr>
-                    {isExpanded && (
-                      <tr>
-                        <td colSpan={3} style={{ padding: 0, border: 'none' }} />
-                        <td colSpan={3} style={{ padding: '0 0 6px', verticalAlign: 'top' }}>
-                          <PredictionPanel
-                            row={row}
-                            filter={expanded.filter}
-                            onFilterChange={f => setExpanded({ id: row.id, filter: f })}
-                            allPreds={allPreds}
-                            allResults={allResults}
-                          />
-                        </td>
-                      </tr>
-                    )}
                   </React.Fragment>
                 );
               })}
@@ -371,6 +375,20 @@ export default function Leaderboard({ currentUser }) {
       <div style={{ padding: '16px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem' }}>
         Tap any score or name to see predictions · Only finished matches count
       </div>
+
+      {expanded && (() => {
+        const row = rows.find(r => r.id === expanded.id);
+        return row ? (
+          <PredictionSheet
+            row={row}
+            filter={expanded.filter}
+            onFilterChange={f => setExpanded({ id: expanded.id, filter: f })}
+            onClose={() => setExpanded(null)}
+            allPreds={allPreds}
+            allResults={allResults}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }

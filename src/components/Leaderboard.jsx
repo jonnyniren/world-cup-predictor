@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase.js';
 import { updateFinishedCache, mergeWithFinishedCache } from '../finishedCache.js';
 
@@ -12,45 +12,70 @@ function Avatar({ value, className }) {
 
 const CACHE_KEY = 'wc2026_fixtures_cache';
 
+const FLAG_CODES = {
+  'USA': 'us', 'United States': 'us', 'Canada': 'ca', 'Mexico': 'mx', 'Brazil': 'br',
+  'Argentina': 'ar', 'Germany': 'de', 'France': 'fr', 'England': 'gb-eng', 'Spain': 'es',
+  'Portugal': 'pt', 'Netherlands': 'nl', 'Belgium': 'be', 'Italy': 'it', 'Croatia': 'hr',
+  'Morocco': 'ma', 'Japan': 'jp', 'South Korea': 'kr', 'Korea Republic': 'kr',
+  'Australia': 'au', 'Saudi Arabia': 'sa', 'Iran': 'ir', 'Senegal': 'sn', 'Nigeria': 'ng',
+  'Cameroon': 'cm', 'Ghana': 'gh', 'Ecuador': 'ec', 'Uruguay': 'uy', 'Colombia': 'co',
+  'Chile': 'cl', 'Switzerland': 'ch', 'Poland': 'pl', 'Serbia': 'rs', 'Austria': 'at',
+  'Ukraine': 'ua', 'Denmark': 'dk', 'Norway': 'no', 'Sweden': 'se', 'Turkey': 'tr',
+  'Turkiye': 'tr', 'Greece': 'gr', 'Czech Republic': 'cz', 'Czechia': 'cz',
+  'Romania': 'ro', 'Slovakia': 'sk', 'Hungary': 'hu', 'Scotland': 'gb-sct',
+  'Wales': 'gb-wls', 'Northern Ireland': 'gb-nir', 'Qatar': 'qa', 'Egypt': 'eg',
+  'Ivory Coast': 'ci', "Cote d'Ivoire": 'ci', 'Cote dIvoire': 'ci',
+  'DR Congo': 'cd', 'Congo DR': 'cd', 'Democratic Republic of Congo': 'cd',
+  'Algeria': 'dz', 'Tunisia': 'tn', 'Panama': 'pa', 'Costa Rica': 'cr',
+  'Honduras': 'hn', 'Jamaica': 'jm', 'New Zealand': 'nz', 'Peru': 'pe',
+  'Paraguay': 'py', 'Venezuela': 've', 'Bolivia': 'bo', 'Iraq': 'iq',
+  'Uzbekistan': 'uz', 'Indonesia': 'id', 'Thailand': 'th', 'Vietnam': 'vn',
+  'South Africa': 'za', 'New Caledonia': 'nc', 'Fiji': 'fj', 'Tanzania': 'tz',
+  'Zimbabwe': 'zw', 'Cuba': 'cu', 'Haiti': 'ht', 'Guatemala': 'gt', 'El Salvador': 'sv',
+};
+
+const STAGE_LABELS = {
+  'GROUP_STAGE': 'Group Stage',
+  'LAST_16': 'Round of 16',
+  'QUARTER_FINALS': 'Quarter-Final',
+  'SEMI_FINALS': 'Semi-Final',
+  'THIRD_PLACE': '3rd Place',
+  'FINAL': 'Final',
+};
+
+function TeamFlag({ name }) {
+  const code = FLAG_CODES[name];
+  if (!code) return <span style={{ fontSize: '0.85rem' }}>{name}</span>;
+  return <img src={`https://flagcdn.com/w20/${code}.png`} alt={name} style={{ width: 20, height: 14, objectFit: 'cover', borderRadius: 2, verticalAlign: 'middle' }} />;
+}
+
 function getResult(home, away) {
   if (home > away) return 'home';
   if (away > home) return 'away';
   return 'draw';
 }
 
-async function fetchFinishedMatches() {
+function getFixtureMap() {
   try {
-    const res = await fetch('/api/fixtures');
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    const json = await res.json();
-    const raw = json.matches || [];
-    updateFinishedCache(raw);
-    const data = mergeWithFinishedCache(raw);
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, cachedAt: Date.now() }));
-    return data.filter(m => m.status === 'FINISHED');
-  } catch {
-    // Fall back to local cache if API unavailable
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) return (JSON.parse(cached).data || []).filter(m => m.status === 'FINISHED');
-    } catch { /* ignore */ }
-    return [];
-  }
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return {};
+    const data = JSON.parse(cached).data || [];
+    const map = {};
+    for (const m of data) map[m.id] = m;
+    return map;
+  } catch { return {}; }
 }
 
 function computeLeaderboard(users, predictions, matchResults) {
-  // matchResults: array of {match_id, home_score, away_score} from Supabase
   const resultsMap = {};
   for (const r of matchResults) {
     resultsMap[r.match_id] = { home: r.home_score, away: r.away_score };
   }
-
   const predsByUser = {};
   for (const p of predictions) {
     if (!predsByUser[p.user_id]) predsByUser[p.user_id] = [];
     predsByUser[p.user_id].push(p);
   }
-
   return users.map(u => {
     let pts = 0, correctScores = 0, correctResults = 0;
     for (const pred of (predsByUser[u.id] || [])) {
@@ -69,12 +94,112 @@ function computeLeaderboard(users, predictions, matchResults) {
   });
 }
 
+function PredictionPanel({ row, filter, onFilterChange, allPreds, allResults }) {
+  const resultsMap = {};
+  for (const r of allResults) resultsMap[r.match_id] = r;
+
+  const fixtureMap = getFixtureMap();
+
+  const scored = [];
+  for (const pred of allPreds.filter(p => p.user_id === row.id)) {
+    const result = resultsMap[pred.match_id];
+    if (!result) continue;
+    const pH = Number(pred.home_score), pA = Number(pred.away_score);
+    const aH = Number(result.home_score), aA = Number(result.away_score);
+    let pts = 0;
+    if (pH === aH && pA === aA) pts = 3;
+    else if (getResult(pH, pA) === getResult(aH, aA)) pts = 1;
+    if (!pts) continue;
+    if (filter === 'exact' && pts !== 3) continue;
+    if (filter === 'result' && pts !== 1) continue;
+    scored.push({ pred, result, pts, match: fixtureMap[pred.match_id] });
+  }
+
+  scored.sort((a, b) => new Date(b.match?.utcDate || 0) - new Date(a.match?.utcDate || 0));
+
+  const totalAll = allPreds.filter(p => {
+    if (p.user_id !== row.id) return false;
+    const r = resultsMap[p.match_id];
+    if (!r) return false;
+    const pH = Number(p.home_score), pA = Number(p.away_score);
+    const aH = Number(r.home_score), aA = Number(r.away_score);
+    return (pH === aH && pA === aA) || getResult(pH, pA) === getResult(aH, aA);
+  }).length;
+
+  return (
+    <div style={{ background: '#f8f9fa', borderTop: '2px solid #FFD700', borderBottom: '2px solid #FFD700' }}>
+      {/* Tab bar */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', background: '#fff' }}>
+        {[
+          { key: 'all', label: `All (${row.correctScores + row.correctResults})` },
+          { key: 'exact', label: `⚽ Exact (${row.correctScores})` },
+          { key: 'result', label: `✓ Result (${row.correctResults})` },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => onFilterChange(tab.key)}
+            style={{
+              flex: 1, border: 'none', padding: '8px 4px', fontSize: '0.72rem', fontWeight: 700,
+              cursor: 'pointer', borderBottom: filter === tab.key ? '3px solid #FFD700' : '3px solid transparent',
+              background: filter === tab.key ? '#fffbea' : '#fff',
+              color: filter === tab.key ? '#333' : '#888',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Prediction rows */}
+      <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+        {scored.length === 0 ? (
+          <div style={{ padding: '16px', textAlign: 'center', color: '#999', fontSize: '0.82rem' }}>
+            No {filter === 'exact' ? 'exact scores' : filter === 'result' ? 'correct results' : 'correct predictions'} yet
+          </div>
+        ) : scored.map(({ pred, result, pts, match }, i) => {
+          const home = match?.homeTeam?.name || `Match ${pred.match_id}`;
+          const away = match?.awayTeam?.name || '';
+          const date = match?.utcDate ? new Date(match.utcDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+          const stage = STAGE_LABELS[match?.stage] || '';
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid #eee', background: pts === 3 ? '#fffbea' : '#fff' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.82rem', fontWeight: 600 }}>
+                  <TeamFlag name={home} />
+                  <span style={{ maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{home}</span>
+                  <span style={{ color: '#555', fontWeight: 700 }}>{result.home_score}–{result.away_score}</span>
+                  <span style={{ maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{away}</span>
+                  <TeamFlag name={away} />
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#888', marginTop: 2 }}>
+                  Predicted: {pred.home_score}–{pred.away_score}
+                  {stage && <span> · {stage}</span>}
+                  {date && <span> · {date}</span>}
+                </div>
+              </div>
+              <div style={{ marginLeft: 8, flexShrink: 0 }}>
+                {pts === 3
+                  ? <span style={{ background: '#FFD700', color: '#333', borderRadius: 12, padding: '2px 8px', fontSize: '0.72rem', fontWeight: 800 }}>🎉 3pts</span>
+                  : <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 12, padding: '2px 8px', fontSize: '0.72rem', fontWeight: 800 }}>✓ 1pt</span>
+                }
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Leaderboard({ currentUser }) {
   const [rows, setRows] = useState([]);
+  const [allPreds, setAllPreds] = useState([]);
+  const [allResults, setAllResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [navbarHeight, setNavbarHeight] = useState(0);
+  const [expanded, setExpanded] = useState(null); // { id, filter }
 
   useEffect(() => {
     const navbarEl = document.querySelector('.navbar');
@@ -85,7 +210,6 @@ export default function Leaderboard({ currentUser }) {
     setLoading(true);
     setError(null);
     try {
-      // Fetch predictions in pages to avoid Supabase 1000-row default limit
       let allPredictions = [];
       let from = 0;
       const pageSize = 1000;
@@ -97,13 +221,14 @@ export default function Leaderboard({ currentUser }) {
         if (data.length < pageSize) break;
         from += pageSize;
       }
-
       const [{ data: users, error: uErr }, { data: matchResults, error: mErr }] = await Promise.all([
         supabase.from('users').select('*').limit(10000),
         supabase.from('match_results').select('*'),
       ]);
       if (uErr) throw uErr;
       if (mErr) throw mErr;
+      setAllPreds(allPredictions);
+      setAllResults(matchResults || []);
       setRows(computeLeaderboard(users || [], allPredictions, matchResults || []));
       setLastUpdated(new Date());
     } catch (e) {
@@ -115,8 +240,11 @@ export default function Leaderboard({ currentUser }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  // Reload when current user's profile changes (e.g. after editing name/avatar)
   useEffect(() => { if (currentUser) load(); }, [currentUser?.name, currentUser?.avatar]);
+
+  function handleTap(id, filter) {
+    setExpanded(e => (e?.id === id && e?.filter === filter) ? null : { id, filter });
+  }
 
   const rankIcon = rank => {
     if (rank === 1) return <span className="rank-gold">🥇</span>;
@@ -180,9 +308,9 @@ export default function Leaderboard({ currentUser }) {
                 <th className="center">#</th>
                 <th className="center">🎭</th>
                 <th>Player</th>
-                <th className="center">Pts</th>
-                <th className="center">⚽ Exact</th>
-                <th className="center">✓ Result</th>
+                <th className="center" style={{ cursor: 'default' }}>Pts</th>
+                <th className="center" title="Tap to see exact scores">⚽ Exact</th>
+                <th className="center" title="Tap to see correct results">✓ Result</th>
               </tr>
             </thead>
             <tbody>
@@ -190,31 +318,53 @@ export default function Leaderboard({ currentUser }) {
                 const rank = idx + 1;
                 const isMe = currentUser && row.id === currentUser.id;
                 const hasCelebrate = row.correctScores > 0;
+                const isExpanded = expanded?.id === row.id;
                 return (
-                  <tr key={row.id} className={[isMe ? 'current-user' : '', hasCelebrate ? 'has-score' : ''].filter(Boolean).join(' ')}>
-                    <td className="rank-cell center">{rankIcon(rank)}</td>
-                    <td className="avatar-cell center">
-                      <Avatar value={row.avatar} className={hasCelebrate ? 'celebrate-emoji' : ''} />
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: isMe ? 800 : 600 }}>{row.name || 'Unknown'}</span>
-                      {isMe && (
-                        <span style={{ fontSize: '0.7rem', background: '#FFD700', color: '#333', borderRadius: 8, padding: '1px 6px', marginLeft: 6, fontWeight: 700 }}>YOU</span>
-                      )}
-                    </td>
-                    <td className="pts-cell center">
-                      {hasCelebrate
-                        ? <span className={`pts-badge${row.pts >= 3 ? ' pts-3' : ''}`}>{row.pts}</span>
-                        : <span style={{ color: '#999' }}>{row.pts}</span>
-                      }
-                    </td>
-                    <td className="center" style={{ color: row.correctScores > 0 ? '#d4a000' : '#999' }}>
-                      {row.correctScores > 0 ? `🎉 ${row.correctScores}` : row.correctScores}
-                    </td>
-                    <td className="center" style={{ color: row.correctResults > 0 ? '#00a651' : '#999' }}>
-                      {row.correctResults > 0 ? `✓ ${row.correctResults}` : row.correctResults}
-                    </td>
-                  </tr>
+                  <React.Fragment key={row.id}>
+                    <tr className={[isMe ? 'current-user' : '', hasCelebrate ? 'has-score' : ''].filter(Boolean).join(' ')}>
+                      <td className="rank-cell center">{rankIcon(rank)}</td>
+                      <td className="avatar-cell center">
+                        <Avatar value={row.avatar} className={hasCelebrate ? 'celebrate-emoji' : ''} />
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: isMe ? 800 : 600 }}>{row.name || 'Unknown'}</span>
+                        {isMe && (
+                          <span style={{ fontSize: '0.7rem', background: '#FFD700', color: '#333', borderRadius: 8, padding: '1px 6px', marginLeft: 6, fontWeight: 700 }}>YOU</span>
+                        )}
+                      </td>
+                      <td className="pts-cell center" onClick={() => handleTap(row.id, 'all')} style={{ cursor: 'pointer' }}>
+                        {hasCelebrate
+                          ? <span className={`pts-badge${row.pts >= 3 ? ' pts-3' : ''}`}>{row.pts}</span>
+                          : <span style={{ color: '#999' }}>{row.pts}</span>
+                        }
+                      </td>
+                      <td className="center" style={{ color: row.correctScores > 0 ? '#d4a000' : '#999', cursor: 'pointer' }} onClick={() => handleTap(row.id, 'exact')}>
+                        {row.correctScores > 0
+                          ? <span style={{ textDecoration: isExpanded && expanded?.filter === 'exact' ? 'underline' : 'none' }}>🎉 {row.correctScores}</span>
+                          : row.correctScores
+                        }
+                      </td>
+                      <td className="center" style={{ color: row.correctResults > 0 ? '#00a651' : '#999', cursor: 'pointer' }} onClick={() => handleTap(row.id, 'result')}>
+                        {row.correctResults > 0
+                          ? <span style={{ textDecoration: isExpanded && expanded?.filter === 'result' ? 'underline' : 'none' }}>✓ {row.correctResults}</span>
+                          : row.correctResults
+                        }
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={6} style={{ padding: 0 }}>
+                          <PredictionPanel
+                            row={row}
+                            filter={expanded.filter}
+                            onFilterChange={f => setExpanded({ id: row.id, filter: f })}
+                            allPreds={allPreds}
+                            allResults={allResults}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -223,7 +373,7 @@ export default function Leaderboard({ currentUser }) {
       )}
 
       <div style={{ padding: '16px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem' }}>
-        Only finished matches count towards points
+        Tap any score to see predictions · Only finished matches count
       </div>
     </div>
   );

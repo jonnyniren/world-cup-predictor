@@ -275,14 +275,14 @@ export default function Leaderboard({ currentUser }) {
     const navH = navbarEl ? navbarEl.getBoundingClientRect().height : 0;
     const bannerH = bannerEl ? bannerEl.getBoundingClientRect().height : 0;
     const headerH = navH + bannerH;
-    // Leave ~2 rows of space above the tapped row
-    const twoRows = rowRect.height * 2;
+    // Leave ~1.5 rows of space above the tapped row
+    const rowH = rowRect.height;
     const rowAbsoluteTop = window.scrollY + rowRect.top;
-    window.scrollTo({ top: rowAbsoluteTop - headerH - twoRows, behavior: 'smooth' });
-    // After scroll, row sits at headerH + twoRows from viewport top
-    const panelTop = headerH + twoRows + rowRect.height;
-    // Leave ~2 rows visible below the panel
-    const panelMaxHeight = window.innerHeight - panelTop - twoRows - 16;
+    window.scrollTo({ top: rowAbsoluteTop - headerH - rowH * 1.5, behavior: 'smooth' });
+    // After scroll, row sits at headerH + 1.5 rows from viewport top
+    const panelTop = headerH + rowH * 1.5 + rowH;
+    // Leave ~1.5 rows visible below the panel
+    const panelMaxHeight = window.innerHeight - panelTop - rowH * 1.5 - 16;
     setExpanded({ id, filter, top: panelTop, maxHeight: panelMaxHeight });
   }
 

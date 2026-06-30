@@ -318,7 +318,8 @@ export default function Leaderboard({ currentUser }) {
   return (
     <div>
       <div className="lb-sticky-banner" style={{ position: 'sticky', top: navbarHeight, zIndex: 50, background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-        ⏱️ Points are based on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count
+        <div>⏱️ Points are based on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count</div>
+        <div style={{ marginTop: 4, fontSize: '0.75rem', color: 'rgba(255,255,255,0.65)', fontWeight: 500 }}>👆 New: Tap a player's name to see their correct predictions</div>
       </div>
       <div className="leaderboard-header">
         <div className="leaderboard-title">🏆 Leaderboard</div>

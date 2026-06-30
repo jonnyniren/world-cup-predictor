@@ -129,20 +129,20 @@ function PredictionSheet({ row, filter, top, onFilterChange, onClose, allPreds, 
 
   return (
     <>
-      {/* Backdrop — only below the anchor row */}
+      {/* Backdrop — only below the anchor row, tap to dismiss */}
       <div onClick={onClose} style={{
         position: 'fixed', top, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.35)', zIndex: 200,
+        background: 'rgba(0,0,0,0.25)', zIndex: 200,
       }} />
-      {/* Anchored panel */}
+      {/* Inset panel — narrower than viewport so leaderboard peeks around it */}
       <div style={{
-        position: 'fixed', top, left: 0, right: 0, zIndex: 201,
+        position: 'fixed', top, left: 20, right: 20, zIndex: 201,
+        maxWidth: 560, margin: '0 auto',
         background: '#fff',
-        borderRadius: '0 0 16px 16px',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-        maxHeight: `calc(100vh - ${top}px - 16px)`,
+        borderRadius: '0 0 14px 14px',
+        boxShadow: '0 6px 24px rgba(0,0,0,0.22)',
+        maxHeight: `calc(100vh - ${top}px - 20px)`,
         display: 'flex', flexDirection: 'column',
-        maxWidth: 640, margin: '0 auto',
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px 8px' }}>
@@ -262,10 +262,25 @@ export default function Leaderboard({ currentUser }) {
   useEffect(() => { if (currentUser) load(); }, [currentUser?.name, currentUser?.avatar]);
 
   function handleTap(id, filter, e) {
+    // Collapse if same cell tapped again
+    if (expanded?.id === id && expanded?.filter === filter) {
+      setExpanded(null);
+      return;
+    }
     const rowEl = e.currentTarget.closest('tr');
-    const rect = rowEl ? rowEl.getBoundingClientRect() : null;
-    const top = rect ? rect.bottom : 120;
-    setExpanded(prev => (prev?.id === id && prev?.filter === filter) ? null : { id, filter, top });
+    if (!rowEl) return;
+    const rowRect = rowEl.getBoundingClientRect();
+    const navbarEl = document.querySelector('.navbar');
+    const bannerEl = document.querySelector('.lb-sticky-banner');
+    const navH = navbarEl ? navbarEl.getBoundingClientRect().height : 0;
+    const bannerH = bannerEl ? bannerEl.getBoundingClientRect().height : 0;
+    const headerH = navH + bannerH;
+    // Scroll so the tapped row sits just below the sticky headers
+    const rowAbsoluteTop = window.scrollY + rowRect.top;
+    window.scrollTo({ top: rowAbsoluteTop - headerH - 4, behavior: 'smooth' });
+    // Panel opens below the row — after scroll the row will be at headerH
+    const panelTop = headerH + rowRect.height;
+    setExpanded({ id, filter, top: panelTop });
   }
 
   const rankIcon = rank => {
@@ -299,7 +314,7 @@ export default function Leaderboard({ currentUser }) {
 
   return (
     <div>
-      <div style={{ position: 'sticky', top: navbarHeight, zIndex: 50, background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+      <div className="lb-sticky-banner" style={{ position: 'sticky', top: navbarHeight, zIndex: 50, background: '#1a3a5c', borderBottom: '2px solid #FFD700', padding: '8px 16px', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
         ⏱️ Points are based on the <span style={{ color: '#FFD700' }}>90-minute score only</span> — extra time &amp; penalties don't count
       </div>
       <div className="leaderboard-header">

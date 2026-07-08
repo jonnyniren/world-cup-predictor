@@ -452,7 +452,7 @@ export default function Fixtures({ user }) {
                     <span className="match-time">{formatBST(match.utcDate)}</span>
                     <StatusBadge status={status} />
                     {status === 'final' && hasPred && pointsInfo && (
-                      <div className={`pred-result pts-${pointsInfo.pts}`}>
+                      <div className={`pred-result${pointsInfo.pts === 0 ? ' pts-0' : pointsInfo.pts >= 3 ? ' pts-3' : ' pts-1'}`}>
                         <span className="pred-your-pick">You: {pred.home}&ndash;{pred.away}</span>
                         <span className="pred-pts-label" dangerouslySetInnerHTML={{ __html: pointsInfo.label }} />
                       </div>

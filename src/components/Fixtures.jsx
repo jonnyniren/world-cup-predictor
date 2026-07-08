@@ -107,6 +107,12 @@ function getResult(h, a) {
   if (h > a) return 'home'; if (a > h) return 'away'; return 'draw';
 }
 
+function getPointsForStage(stage) {
+  if (stage === 'SEMI_FINALS' || stage === 'THIRD_PLACE' || stage === 'FINAL') return { exact: 6, result: 3 };
+  if (stage === 'LAST_16' || stage === 'QUARTER_FINALS') return { exact: 4, result: 2 };
+  return { exact: 3, result: 1 };
+}
+
 function getPredictionPoints(pred, match, dbResult) {
   if (!pred || pred.home === '' || pred.away === '') return null;
   // Prefer dbResult (manually corrected) > regularTime (90-min) > fullTime (may include ET/pens)
@@ -115,8 +121,9 @@ function getPredictionPoints(pred, match, dbResult) {
   if (aH == null || aA == null) return null;
   const pH = Number(pred.home), pA = Number(pred.away);
   const actualH = Number(aH), actualA = Number(aA);
-  if (pH === actualH && pA === actualA) return { pts: 3, label: '&#127881; Exact score! +3pts' };
-  if (getResult(pH, pA) === getResult(actualH, actualA)) return { pts: 1, label: '&#10003; Correct result +1pt' };
+  const { exact, result } = getPointsForStage(match.stage);
+  if (pH === actualH && pA === actualA) return { pts: exact, label: `&#127881; Exact score! +${exact}pts` };
+  if (getResult(pH, pA) === getResult(actualH, actualA)) return { pts: result, label: `&#10003; Correct result +${result}pt${result !== 1 ? 's' : ''}` };
   return { pts: 0, label: '&#10007; No points' };
 }
 

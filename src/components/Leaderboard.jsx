@@ -61,6 +61,12 @@ function getResult(home, away) {
   return 'draw';
 }
 
+function getPointsForStage(stage) {
+  if (stage === 'SEMI_FINALS' || stage === 'THIRD_PLACE' || stage === 'FINAL') return { exact: 6, result: 3 };
+  if (stage === 'LAST_16' || stage === 'QUARTER_FINALS') return { exact: 4, result: 2 };
+  return { exact: 3, result: 1 };
+}
+
 function getFixtureMap() {
   try {
     const cached = localStorage.getItem(CACHE_KEY);
@@ -77,6 +83,7 @@ function computeLeaderboard(users, predictions, matchResults) {
   for (const r of matchResults) {
     resultsMap[r.match_id] = { home: r.home_score, away: r.away_score };
   }
+  const fixtureMap = getFixtureMap();
   const predsByUser = {};
   for (const p of predictions) {
     if (!predsByUser[p.user_id]) predsByUser[p.user_id] = [];
@@ -89,8 +96,10 @@ function computeLeaderboard(users, predictions, matchResults) {
       if (!result || result.home == null || result.away == null) continue;
       const pH = Number(pred.home_score), pA = Number(pred.away_score);
       const aH = Number(result.home), aA = Number(result.away);
-      if (pH === aH && pA === aA) { pts += 3; correctScores++; }
-      else if (getResult(pH, pA) === getResult(aH, aA)) { pts += 1; correctResults++; }
+      const stage = fixtureMap[pred.match_id]?.stage;
+      const { exact, result: resultPts } = getPointsForStage(stage);
+      if (pH === aH && pA === aA) { pts += exact; correctScores++; }
+      else if (getResult(pH, pA) === getResult(aH, aA)) { pts += resultPts; correctResults++; }
     }
     return { ...u, pts, correctScores, correctResults };
   }).sort((a, b) => {
@@ -111,13 +120,15 @@ function PredictionSheet({ row, filter, top, maxHeight, onFilterChange, onClose,
     if (!result) continue;
     const pH = Number(pred.home_score), pA = Number(pred.away_score);
     const aH = Number(result.home_score), aA = Number(result.away_score);
-    let pts = 0;
-    if (pH === aH && pA === aA) pts = 3;
-    else if (getResult(pH, pA) === getResult(aH, aA)) pts = 1;
-    if (!pts) continue;
-    if (filter === 'exact' && pts !== 3) continue;
-    if (filter === 'result' && pts !== 1) continue;
-    scored.push({ pred, result, pts, match: fixtureMap[pred.match_id] });
+    const match = fixtureMap[pred.match_id];
+    const { exact, result: resultPts } = getPointsForStage(match?.stage);
+    let pts = 0, ptType = null;
+    if (pH === aH && pA === aA) { pts = exact; ptType = 'exact'; }
+    else if (getResult(pH, pA) === getResult(aH, aA)) { pts = resultPts; ptType = 'result'; }
+    if (!ptType) continue;
+    if (filter === 'exact' && ptType !== 'exact') continue;
+    if (filter === 'result' && ptType !== 'result') continue;
+    scored.push({ pred, result, pts, ptType, match });
   }
   scored.sort((a, b) => new Date(b.match?.utcDate || 0) - new Date(a.match?.utcDate || 0));
 
@@ -171,7 +182,7 @@ function PredictionSheet({ row, filter, top, maxHeight, onFilterChange, onClose,
         <div style={{ overflowY: 'auto', padding: '0 12px 24px', flex: 1 }}>
           {scored.length === 0 ? (
             <div style={{ padding: '20px', textAlign: 'center', color: '#bbb', fontSize: '0.82rem' }}>None yet</div>
-          ) : scored.map(({ result, pts, match }, i) => {
+          ) : scored.map(({ result, pts, ptType, match }, i) => {
             const home = match?.homeTeam?.name || '?';
             const away = match?.awayTeam?.name || '?';
             const homeCode = TEAM_CODES[home] || home.slice(0, 3).toUpperCase();
@@ -182,7 +193,7 @@ function PredictionSheet({ row, filter, top, maxHeight, onFilterChange, onClose,
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '7px 10px', marginBottom: 6, borderRadius: 10,
-                background: pts === 3 ? '#fffbea' : '#f8f8f8',
+                background: ptType === 'exact' ? '#fffbea' : '#f8f8f8',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.82rem', fontWeight: 600 }}>
@@ -194,12 +205,12 @@ function PredictionSheet({ row, filter, top, maxHeight, onFilterChange, onClose,
                 </div>
                 <span style={{
                   flexShrink: 0, marginLeft: 8,
-                  background: pts === 3 ? '#FFD700' : '#e8f5e9',
-                  color: pts === 3 ? '#333' : '#2e7d32',
+                  background: ptType === 'exact' ? '#FFD700' : '#e8f5e9',
+                  color: ptType === 'exact' ? '#333' : '#2e7d32',
                   borderRadius: 10, padding: '3px 9px',
                   fontSize: '0.72rem', fontWeight: 800,
                 }}>
-                  {pts === 3 ? '🎉 3pts' : '✓ 1pt'}
+                  {ptType === 'exact' ? `🎉 ${pts}pts` : `✓ ${pts}pt${pts !== 1 ? 's' : ''}`}
                 </span>
               </div>
             );
@@ -324,7 +335,7 @@ export default function Leaderboard({ currentUser }) {
       <div className="leaderboard-header">
         <div className="leaderboard-title">🏆 Leaderboard</div>
         <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', marginTop: 4 }}>
-          3pts = exact score · 1pt = correct result
+          Groups 3/1 · R16 &amp; QF 4/2 · SF &amp; Final 6/3
         </div>
         <div style={{ marginTop: 10 }}>
           <button className="refresh-btn" onClick={load}>🔄 Refresh</button>

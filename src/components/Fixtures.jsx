@@ -227,6 +227,18 @@ export default function Fixtures({ user }) {
       setMatches(data);
       // Always reload db results alongside fixtures so scores stay in sync
       await loadDbResults();
+      // Keep matches reference table in sync so analysis queries can join on team names
+      const matchRows = raw.filter(m => m.homeTeam?.name && m.awayTeam?.name).map(m => ({
+        match_id: m.id,
+        home_team: m.homeTeam.name,
+        away_team: m.awayTeam.name,
+        stage: m.stage || null,
+        utc_date: m.utcDate || null,
+      }));
+      if (matchRows.length > 0) {
+        supabase.from('matches').upsert(matchRows, { onConflict: 'match_id' }).then(() => {});
+      }
+
       // Persist any newly finished matches to Supabase so all devices benefit
       const finished = raw.filter(m => m.status === 'FINISHED' && m.score?.fullTime?.home != null);
       if (finished.length > 0) {
